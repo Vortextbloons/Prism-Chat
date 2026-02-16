@@ -8,6 +8,7 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
 	<link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -22,7 +23,13 @@
 			<button id="newChatButton" class="new-chat-button" type="button">
                 <i data-lucide="plus"></i> New Chat
             </button>
+			<button id="clearAllChatsButton" class="sidebar-button" type="button">
+                <i data-lucide="trash-2"></i> Delete All
+            </button>
 			<section id="chatList" class="chat-list" aria-label="Chat history"></section>
+			<button id="settingsButton" class="sidebar-button" type="button">
+                <i data-lucide="settings-2"></i> Settings
+            </button>
 		</aside>
 
 		<section class="chat-app" aria-label="AI chat application">
@@ -49,7 +56,12 @@
 			<section id="chatWindow" class="chat-window" aria-live="polite" aria-label="Conversation"></section>
 
 			<form id="chatForm" class="input-group" autocomplete="off">
+				<div id="imagePreview" class="image-preview hidden" aria-live="polite"></div>
 				<div class="input-wrapper">
+                    <button id="imageUploadButton" class="image-upload-button" type="button" aria-label="Upload image">
+                        <i data-lucide="image-plus"></i>
+                    </button>
+                    <input id="imageInput" type="file" accept="image/*" hidden />
                     <textarea id="messageInput" rows="1" placeholder="Message Eysic..." aria-label="Message input"></textarea>
                     <button id="sendButton" type="submit" aria-label="Send">
                        <i data-lucide="send-horizontal"></i>
@@ -59,7 +71,28 @@
 		</section>
 	</main>
 
+    <div id="settingsModal" class="settings-modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-card">
+            <div class="settings-header">
+                <h3 id="settingsTitle">Settings</h3>
+                <button id="closeSettingsButton" class="settings-close" type="button" aria-label="Close settings">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="settings-body">
+                <label for="themeSelect">Theme</label>
+                <select id="themeSelect" class="theme-select">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="oled">OLED</option>
+                    <option value="amethyst">Amethyst</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
 	<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script>
       // Initialize icons
       document.addEventListener('DOMContentLoaded', () => {
@@ -68,6 +101,11 @@
         }
       });
     </script>
-	<script src="script.js"></script>
+    <script src="js/constants.js"></script>
+    <script src="js/content.js"></script>
+    <script src="js/theme-settings.js"></script>
+    <script src="js/models.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
