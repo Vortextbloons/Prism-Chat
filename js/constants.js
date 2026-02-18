@@ -8,21 +8,25 @@ const imagePreview = document.getElementById("imagePreview");
 const chatList = document.getElementById("chatList");
 const newChatButton = document.getElementById("newChatButton");
 const clearAllChatsButton = document.getElementById("clearAllChatsButton");
+const chatSearchInput = document.getElementById("chatSearchInput");
 const settingsButton = document.getElementById("settingsButton");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsButton = document.getElementById("closeSettingsButton");
 const themeSelect = document.getElementById("themeSelect");
+const exportChatsButton = document.getElementById("exportChatsButton");
+const importChatsButton = document.getElementById("importChatsButton");
+const importChatsInput = document.getElementById("importChatsInput");
 
 const modelSelectorBtn = document.getElementById("modelSelectorBtn");
 const modelDropdown = document.getElementById("modelDropdown");
 const selectedModelName = document.getElementById("selectedModelName");
 const selectedModelIcon = document.getElementById("selectedModelIcon");
-
+const Groq_API_KEY = "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"
 const OPENROUTER_API_KEY = "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";
 const GOOGLE_API_KEY = "AIzaSyA856khLsu3viE8CNECPscCf6L3ghBOnkg";
 const DEFAULT_MODEL = "openrouter/aurora-alpha";
-const DEFAULT_TEMPERATURE = 0.7;
-const DEFAULT_MAX_TOKENS = 100000;
+const DEFAULT_TEMPERATURE = 0.4;
+const DEFAULT_MAX_TOKENS = 50000;
 
 const MODEL_CATEGORY_ORDER = ["general", "pro", "thinking", "fast", "creative", "media"];
 const MODEL_CATEGORY_LABELS = {
@@ -198,7 +202,8 @@ const STORAGE_KEYS = {
     chats: "eysic.chats",
     activeChatId: "eysic.activeChatId",
     model: "eysic.model",
-    theme: "eysic.theme"
+    theme: "eysic.theme",
+    search: "eysic.search"
 };
 
 const THEME_CLASS_MAP = {
@@ -214,3 +219,9 @@ let currentModelId = DEFAULT_MODEL;
 let messages = [];
 let pendingImageDataUrl = "";
 let pendingImageName = "";
+let activeRequestController = null;
+let isGenerating = false;
+let chatSearchQuery = "";
+let benchmarkModeEnabled = false;
+
+window.benchmarkModeEnabled = benchmarkModeEnabled;

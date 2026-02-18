@@ -21,6 +21,12 @@ if (clearAllChatsButton) {
     clearAllChatsButton.addEventListener("click", clearAllChats);
 }
 
+if (chatSearchInput) {
+    chatSearchInput.addEventListener("input", (event) => {
+        setChatSearchQuery(event.target.value);
+    });
+}
+
 if (imageUploadButton) {
     imageUploadButton.addEventListener("click", () => {
         if (!MULTIMODAL_MODEL_IDS.has(currentModelId)) {
@@ -45,4 +51,7 @@ initSettingsUI();
 initModelSelector();
 loadChats();
 autoGrowTextarea();
+if (typeof window.initSendButton === "function") {
+    window.initSendButton();
+}
 if (window.lucide) lucide.createIcons();

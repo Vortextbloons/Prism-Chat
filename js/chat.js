@@ -52,7 +52,106 @@ function scrollToBottom() {
     if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
-function createMessageElement(role, content, isMarkdown = false) {
+function initSendButton() {
+    setGenerationState(false);
+}
+
+function setGenerationState(generating) {
+    isGenerating = generating;
+
+    if (!sendButton) return;
+
+    if (generating) {
+        sendButton.setAttribute("aria-label", "Stop");
+        sendButton.innerHTML = '<i data-lucide="square"></i>';
+    } else {
+        sendButton.setAttribute("aria-label", "Send");
+        sendButton.innerHTML = '<i data-lucide="send-horizontal"></i>';
+    }
+
+    if (window.lucide) {
+        lucide.createIcons({ root: sendButton });
+    }
+}
+
+function stopActiveGeneration() {
+    if (activeRequestController) {
+        activeRequestController.abort();
+    }
+}
+
+function copyMessageText(content, triggerButton) {
+    const text = getTextFromContent(content);
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        if (!triggerButton) return;
+        const original = triggerButton.getAttribute("aria-label") || "Copy response";
+        triggerButton.setAttribute("aria-label", "Copied");
+        triggerButton.classList.add("copied");
+        setTimeout(() => {
+            triggerButton.setAttribute("aria-label", original);
+            triggerButton.classList.remove("copied");
+        }, 1200);
+    }).catch(() => {
+        console.error("Failed to copy response text.");
+    });
+}
+
+function createMessageActions(role, content, messageIndex) {
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+
+    if (role === "assistant") {
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.className = "message-action-btn";
+        copyButton.setAttribute("aria-label", "Copy response");
+        copyButton.innerHTML = '<i data-lucide="copy"></i>';
+        copyButton.addEventListener("click", () => {
+            copyMessageText(content, copyButton);
+        });
+        actions.appendChild(copyButton);
+
+        const chat = getCurrentChat();
+        const isLatestAssistant = Number.isInteger(messageIndex)
+            && chat
+            && messageIndex === chat.messages.length - 1
+            && chat.messages[messageIndex]?.role === "assistant";
+
+        if (isLatestAssistant) {
+            const regenerateButton = document.createElement("button");
+            regenerateButton.type = "button";
+            regenerateButton.className = "message-action-btn";
+            regenerateButton.setAttribute("aria-label", "Regenerate response");
+            regenerateButton.innerHTML = '<i data-lucide="refresh-cw"></i>';
+            regenerateButton.addEventListener("click", () => {
+                regenerateAssistantReply(messageIndex);
+            });
+            actions.appendChild(regenerateButton);
+        }
+    }
+
+    if (role === "user" && Number.isInteger(messageIndex)) {
+        const editButton = document.createElement("button");
+        editButton.type = "button";
+        editButton.className = "message-action-btn";
+        editButton.setAttribute("aria-label", "Edit and resend");
+        editButton.innerHTML = '<i data-lucide="pencil"></i>';
+        editButton.addEventListener("click", () => {
+            editAndResendMessage(messageIndex);
+        });
+        actions.appendChild(editButton);
+    }
+
+    if (actions.childElementCount === 0) {
+        return null;
+    }
+
+    return actions;
+}
+
+function createMessageElement(role, content, isMarkdown = false, messageIndex = null) {
     const messageElement = document.createElement("div");
     messageElement.className = `message ${role === "user" ? "user" : "assistant"}`;
 
@@ -78,6 +177,11 @@ function createMessageElement(role, content, isMarkdown = false) {
 
     messageElement.appendChild(avatar);
     messageElement.appendChild(textContent);
+
+    const actions = createMessageActions(role, content, messageIndex);
+    if (actions) {
+        textContent.appendChild(actions);
+    }
 
     if (window.lucide) {
         requestAnimationFrame(() => lucide.createIcons({ root: messageElement }));
@@ -110,11 +214,31 @@ function renderMessages() {
     chatWindow.innerHTML = "";
     if (messages.length === 0) return;
 
-    messages.forEach((item) => {
+    messages.forEach((item, index) => {
         const isAi = item.role === "assistant";
-        chatWindow.appendChild(createMessageElement(item.role, item.content, isAi));
+        chatWindow.appendChild(createMessageElement(item.role, item.content, isAi, index));
     });
     scrollToBottom();
+}
+
+function setChatSearchQuery(value) {
+    chatSearchQuery = String(value || "").trim().toLowerCase();
+    localStorage.setItem(STORAGE_KEYS.search, value || "");
+    renderChatList();
+}
+
+function chatMatchesSearch(chat) {
+    if (!chatSearchQuery) return true;
+
+    const title = String(chat.title || "").toLowerCase();
+    if (title.includes(chatSearchQuery)) return true;
+
+    const conversationText = (chat.messages || [])
+        .map((message) => getTextFromContent(message.content))
+        .join("\n")
+        .toLowerCase();
+
+    return conversationText.includes(chatSearchQuery);
 }
 
 function renameChat(chatId) {
@@ -169,7 +293,17 @@ function renderChatList() {
     chatList.innerHTML = "";
 
     const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
-    sortedChats.forEach((chat) => {
+    const filteredChats = sortedChats.filter(chatMatchesSearch);
+
+    if (filteredChats.length === 0) {
+        const emptyState = document.createElement("div");
+        emptyState.className = "chat-list-empty";
+        emptyState.textContent = "No chats found";
+        chatList.appendChild(emptyState);
+        return;
+    }
+
+    filteredChats.forEach((chat) => {
         const item = document.createElement("div");
         item.className = `chat-item${chat.id === currentChatId ? " active" : ""}`;
 
@@ -256,13 +390,13 @@ function createChat(activate = true) {
 }
 
 function addMessage(role, content, shouldSave = true) {
-    const isAi = role === "assistant";
-    if (chatWindow) chatWindow.appendChild(createMessageElement(role, content, isAi));
+    let messageIndex = null;
 
     if (shouldSave) {
         const chat = getCurrentChat();
         if (chat) {
             chat.messages.push({ role, content });
+            messageIndex = chat.messages.length - 1;
             messages = chat.messages;
             updateChatTitleFromMessages();
             touchCurrentChat();
@@ -270,6 +404,9 @@ function addMessage(role, content, shouldSave = true) {
             renderChatList();
         }
     }
+
+    const isAi = role === "assistant";
+    if (chatWindow) chatWindow.appendChild(createMessageElement(role, content, isAi, messageIndex));
 
     scrollToBottom();
 }
@@ -388,7 +525,7 @@ function parseGoogleGenerationResult(payload, modelType) {
     };
 }
 
-async function generateGoogleMediaReply() {
+async function generateGoogleMediaReply(signal) {
     const apiKey = GOOGLE_API_KEY.trim();
     const selectedModel = getSelectedModel();
 
@@ -407,6 +544,7 @@ async function generateGoogleMediaReply() {
         headers: {
             "Content-Type": "application/json"
         },
+        signal,
         body: JSON.stringify({
             contents,
             generationConfig: {
@@ -425,7 +563,7 @@ async function generateGoogleMediaReply() {
     return parseGoogleGenerationResult(payload, selectedModel.type);
 }
 
-async function streamOpenRouterReply(onChunk) {
+async function streamOpenRouterReply(onChunk, signal) {
     const apiKey = OPENROUTER_API_KEY.trim();
     const selectedModel = getSelectedModel();
 
@@ -441,6 +579,7 @@ async function streamOpenRouterReply(onChunk) {
             "HTTP-Referer": window.location.origin || "http://localhost",
             "X-Title": "Eysic AI"
         },
+        signal,
         body: JSON.stringify({
             model: selectedModel.id,
             temperature: DEFAULT_TEMPERATURE,
@@ -491,7 +630,7 @@ async function streamOpenRouterReply(onChunk) {
     }
 }
 
-async function streamGoogleReply(onChunk) {
+async function streamGoogleReply(onChunk, signal) {
     const apiKey = GOOGLE_API_KEY.trim();
     const selectedModel = getSelectedModel();
 
@@ -527,6 +666,7 @@ async function streamGoogleReply(onChunk) {
         headers: {
             "Content-Type": "application/json"
         },
+        signal,
         body: JSON.stringify(createRequestBody(contents))
     });
 
@@ -539,6 +679,7 @@ async function streamGoogleReply(onChunk) {
                 headers: {
                     "Content-Type": "application/json"
                 },
+                signal,
                 body: JSON.stringify(createRequestBody(contents))
             });
         }
@@ -585,19 +726,19 @@ async function streamGoogleReply(onChunk) {
     }
 }
 
-async function streamModelReply(onChunk) {
+async function streamModelReply(onChunk, signal) {
     const selectedModel = getSelectedModel();
     if (!selectedModel) {
         throw new Error("Invalid model selection.");
     }
 
     if (selectedModel.provider === "google") {
-        await streamGoogleReply(onChunk);
+        await streamGoogleReply(onChunk, signal);
         return;
     }
 
     if (selectedModel.provider === "openrouter") {
-        await streamOpenRouterReply(onChunk);
+        await streamOpenRouterReply(onChunk, signal);
         return;
     }
 
@@ -614,6 +755,9 @@ async function handleAssistantReply() {
                 ? "Generating image..."
                 : "Thinking...";
     addTypingIndicator(typingLabel);
+    setGenerationState(true);
+    activeRequestController = new AbortController();
+    const { signal } = activeRequestController;
 
     let streamedElement = null;
     let streamedContentDiv = null;
@@ -621,8 +765,7 @@ async function handleAssistantReply() {
 
     try {
         if (selectedModel && isGenerationModelType(selectedModel.type)) {
-            const generatedContent = await generateGoogleMediaReply();
-            removeTypingIndicator();
+            const generatedContent = await generateGoogleMediaReply(signal);
             addMessage("assistant", generatedContent);
             return;
         }
@@ -643,9 +786,7 @@ async function handleAssistantReply() {
                 streamedContentDiv.textContent = streamedText;
             }
             scrollToBottom();
-        });
-
-        removeTypingIndicator();
+        }, signal);
 
         if (!streamedText.trim()) return;
 
@@ -656,20 +797,123 @@ async function handleAssistantReply() {
             touchCurrentChat();
             saveChats();
             renderChatList();
+            renderMessages();
         }
     } catch (error) {
+        const aborted = error?.name === "AbortError";
+
+        if (aborted) {
+            if (streamedText.trim()) {
+                const chat = getCurrentChat();
+                if (chat) {
+                    chat.messages.push({ role: "assistant", content: streamedText.trim() });
+                    messages = chat.messages;
+                    touchCurrentChat();
+                    saveChats();
+                    renderChatList();
+                    renderMessages();
+                }
+            } else if (streamedElement) {
+                streamedElement.remove();
+            }
+            return;
+        }
+
         console.error(error);
-        removeTypingIndicator();
         if (streamedElement && !streamedText) {
             streamedElement.remove();
         }
-
         addMessage("assistant", ASSISTANT_ERROR_MESSAGE, false);
+    } finally {
+        removeTypingIndicator();
+        activeRequestController = null;
+        setGenerationState(false);
     }
+}
+
+async function submitUserContent(userContent) {
+    addMessage("user", userContent);
+    if (messageInput) {
+        messageInput.value = "";
+        autoGrowTextarea();
+    }
+    clearPendingImage();
+    await handleAssistantReply();
+}
+
+function regenerateAssistantReply(messageIndex) {
+    if (isGenerating) return;
+
+    const chat = getCurrentChat();
+    if (!chat || !Number.isInteger(messageIndex)) return;
+    if (chat.messages[messageIndex]?.role !== "assistant") return;
+
+    let previousUserIndex = -1;
+    for (let index = messageIndex - 1; index >= 0; index -= 1) {
+        if (chat.messages[index]?.role === "user") {
+            previousUserIndex = index;
+            break;
+        }
+    }
+
+    if (previousUserIndex === -1) return;
+
+    chat.messages = chat.messages.slice(0, previousUserIndex + 1);
+    messages = chat.messages;
+    touchCurrentChat();
+    saveChats();
+    renderMessages();
+    renderChatList();
+
+    handleAssistantReply().finally(() => {
+        if (messageInput) messageInput.focus();
+    });
+}
+
+function editAndResendMessage(messageIndex) {
+    if (isGenerating) return;
+
+    const chat = getCurrentChat();
+    if (!chat || !Number.isInteger(messageIndex)) return;
+
+    const target = chat.messages[messageIndex];
+    if (!target || target.role !== "user") return;
+
+    const existingText = getTextFromContent(target.content);
+    const edited = prompt("Edit your message", existingText);
+    if (edited === null) return;
+
+    const trimmed = edited.trim();
+    if (!trimmed) return;
+
+    chat.messages = chat.messages.slice(0, messageIndex);
+    messages = chat.messages;
+    touchCurrentChat();
+    saveChats();
+    renderMessages();
+    renderChatList();
+
+    const hasImage = typeof target.content === "object" && target.content?.imageDataUrl;
+    const userContent = hasImage
+        ? {
+            text: trimmed,
+            imageDataUrl: target.content.imageDataUrl,
+            imageName: target.content.imageName || ""
+        }
+        : trimmed;
+
+    submitUserContent(userContent).finally(() => {
+        if (messageInput) messageInput.focus();
+    });
 }
 
 function handleSendMessage(event) {
     event.preventDefault();
+
+    if (isGenerating) {
+        stopActiveGeneration();
+        return;
+    }
 
     const text = messageInput.value.trim();
     if (!text && !pendingImageDataUrl) return;
@@ -697,21 +941,117 @@ function handleSendMessage(event) {
           }
         : text;
 
-    addMessage("user", userContent);
-    messageInput.value = "";
-    autoGrowTextarea();
-    sendButton.disabled = true;
-    clearPendingImage();
-
-    handleAssistantReply().finally(() => {
-        sendButton.disabled = false;
+    submitUserContent(userContent).finally(() => {
         if (messageInput) messageInput.focus();
     });
 }
 
+function exportChatsToFile() {
+    const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        chats
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `eysic-chats-${dateStamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function normalizeImportedMessage(message) {
+    if (!message || typeof message !== "object") return null;
+    if (message.role !== "user" && message.role !== "assistant") return null;
+
+    const content = message.content;
+    const isValidString = typeof content === "string";
+    const isValidObject = content && typeof content === "object";
+    if (!isValidString && !isValidObject) return null;
+
+    return {
+        role: message.role,
+        content
+    };
+}
+
+function normalizeImportedChat(chat) {
+    if (!chat || typeof chat !== "object") return null;
+
+    const parsedMessages = Array.isArray(chat.messages)
+        ? chat.messages.map(normalizeImportedMessage).filter(Boolean)
+        : [];
+
+    return {
+        id: typeof chat.id === "string" && chat.id ? chat.id : generateChatId(),
+        title: typeof chat.title === "string" && chat.title.trim() ? chat.title.trim().slice(0, 60) : "Imported Chat",
+        messages: parsedMessages,
+        createdAt: parseNumber(chat.createdAt, Date.now()),
+        updatedAt: parseNumber(chat.updatedAt, Date.now())
+    };
+}
+
+async function importChatsFromFileInput(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+        const rawText = await file.text();
+        const parsed = JSON.parse(rawText);
+        const sourceChats = Array.isArray(parsed) ? parsed : parsed?.chats;
+
+        if (!Array.isArray(sourceChats)) {
+            throw new Error("The selected file does not include a chats array.");
+        }
+
+        const importedChats = sourceChats
+            .map(normalizeImportedChat)
+            .filter(Boolean);
+
+        if (importedChats.length === 0) {
+            throw new Error("No valid chats were found in this file.");
+        }
+
+        if (chats.length > 0 && !confirm("Import will replace current chats. Continue?")) {
+            return;
+        }
+
+        chats = importedChats;
+        currentChatId = importedChats[0].id;
+        messages = importedChats[0].messages;
+        saveChats();
+        setActiveChat(currentChatId);
+        renderChatList();
+
+        if (typeof closeSettings === "function") {
+            closeSettings();
+        }
+    } catch (error) {
+        console.error(error);
+        addMessage("assistant", "Import failed. Please use a valid chat export file.", false);
+    }
+}
+
+window.exportChatsToFile = exportChatsToFile;
+window.importChatsFromFileInput = importChatsFromFileInput;
+window.initSendButton = initSendButton;
+
 function loadChats() {
     const savedChats = localStorage.getItem(STORAGE_KEYS.chats);
     const savedActiveChatId = localStorage.getItem(STORAGE_KEYS.activeChatId);
+    const savedSearch = localStorage.getItem(STORAGE_KEYS.search) || "";
+    chatSearchQuery = savedSearch.trim().toLowerCase();
+
+    if (chatSearchInput) {
+        chatSearchInput.value = savedSearch;
+    }
 
     if (!savedChats) {
         createChat(true);

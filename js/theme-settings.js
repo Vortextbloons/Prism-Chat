@@ -52,4 +52,28 @@ function initSettingsUI() {
             applyTheme(event.target.value);
         });
     }
+
+    if (exportChatsButton) {
+        exportChatsButton.addEventListener("click", () => {
+            if (typeof window.exportChatsToFile === "function") {
+                window.exportChatsToFile();
+                return;
+            }
+            console.error("Export handler is unavailable.");
+        });
+    }
+
+    if (importChatsButton && importChatsInput) {
+        importChatsButton.addEventListener("click", () => {
+            importChatsInput.click();
+        });
+
+        importChatsInput.addEventListener("change", (event) => {
+            if (typeof window.importChatsFromFileInput === "function") {
+                window.importChatsFromFileInput(event);
+                return;
+            }
+            console.error("Import handler is unavailable.");
+        });
+    }
 }

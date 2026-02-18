@@ -26,6 +26,7 @@
 			<button id="clearAllChatsButton" class="sidebar-button" type="button">
                 <i data-lucide="trash-2"></i> Delete All
             </button>
+			<input id="chatSearchInput" class="chat-search-input" type="search" placeholder="Search chats..." aria-label="Search chats" />
 			<section id="chatList" class="chat-list" aria-label="Chat history"></section>
 			<button id="settingsButton" class="sidebar-button" type="button">
                 <i data-lucide="settings-2"></i> Settings
@@ -87,6 +88,13 @@
                     <option value="oled">OLED</option>
                     <option value="amethyst">Amethyst</option>
                 </select>
+                <button id="exportChatsButton" class="settings-button" type="button">
+                    <i data-lucide="download"></i> Export Chats
+                </button>
+                <button id="importChatsButton" class="settings-button" type="button">
+                    <i data-lucide="upload"></i> Import Chats
+                </button>
+                <input id="importChatsInput" type="file" accept="application/json" hidden />
             </div>
         </div>
     </div>
