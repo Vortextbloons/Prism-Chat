@@ -970,6 +970,77 @@ async function streamGoogleReply(onChunk, signal) {
     }
 }
 
+async function streamGroqReply(onChunk, signal) {
+    const apiKey = Groq_API_KEY.trim();
+    const selectedModel = getSelectedModel();
+
+    if (!selectedModel || selectedModel.provider !== "groq") {
+        throw new Error("Invalid Groq model selection.");
+    }
+
+    const systemInstruction = getCombinedStudyInstruction();
+    const outgoingMessages = buildOpenRouterMessages(messages);
+    if (systemInstruction) {
+        outgoingMessages.unshift({ role: "system", content: systemInstruction });
+    }
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+        },
+        signal,
+        body: JSON.stringify({
+            model: selectedModel.id,
+            temperature: DEFAULT_TEMPERATURE,
+            max_tokens: Math.min(DEFAULT_MAX_TOKENS, 16384),
+            stream: true,
+            messages: outgoingMessages
+        })
+    });
+
+    if (!response.ok) {
+        await logApiErrorResponse("Groq", response);
+        throw new Error(`Groq API request failed with status ${response.status}.`);
+    }
+
+    if (!response.body) {
+        throw new Error("Streaming response body is unavailable.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+
+            const payload = trimmed.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+
+            let parsed;
+            try {
+                parsed = JSON.parse(payload);
+            } catch {
+                continue;
+            }
+
+            const chunkText = parsed.choices?.[0]?.delta?.content;
+            if (chunkText) onChunk(chunkText);
+        }
+    }
+}
+
 async function streamModelReply(onChunk, signal) {
     const selectedModel = getSelectedModel();
     if (!selectedModel) {
@@ -983,6 +1054,11 @@ async function streamModelReply(onChunk, signal) {
 
     if (selectedModel.provider === "openrouter") {
         await streamOpenRouterReply(onChunk, signal);
+        return;
+    }
+
+    if (selectedModel.provider === "groq") {
+        await streamGroqReply(onChunk, signal);
         return;
     }
 

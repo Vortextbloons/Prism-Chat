@@ -53,11 +53,13 @@ const MULTIMODAL_MODEL_IDS = new Set([
     "gemma-3-27b-it",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
-    "gemini-2.0-flash-preview-image-generation"
+
 ]);
 
 const CHAT_MODEL_IDS = new Set([
-    "openai/gpt-oss-120b:free",
+    "moonshotai/kimi-k2-instruct-0905",
+    "qwen/qwen3-32b",
+    "openai/gpt-oss-120b",
     "deepseek/deepseek-r1-0528:free",
     "qwen/qwen3-coder:free",
     "nvidia/nemotron-nano-12b-v2-vl:free",
@@ -71,9 +73,6 @@ const CHAT_MODEL_IDS = new Set([
     "qwen/qwen3-235b-a22b-thinking-2507",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
-    "veo-3.0-generate-preview",
-    "lyria-2.0-generate-preview",
-    "gemini-2.0-flash-preview-image-generation"
 ]);
 
 const ASSISTANT_ERROR_MESSAGE = "Sorry, something went wrong while generating a response. Please try again.";
@@ -88,13 +87,31 @@ const POMODORO_BREAK_SECONDS = 5 * 60;
 
 const MODELS = [
     {
-        id: "openai/gpt-oss-120b:free",
-        name: "GPT OSS",
+        id: "moonshotai/kimi-k2-instruct-0905",
+        name: "Kimi K2",
+        description: "MoonshotAI's flagship model via Groq",
+        icon: "moon",
+        type: "chat",
+        provider: "groq",
+        category: "general"
+    },
+    {
+        id: "openai/gpt-oss-120b",
+        name: "GPT 5 Pro",
         description: "Balanced performance for general tasks",
         icon: "box",
         type: "chat",
-        provider: "openrouter",
-        category: "creative"
+        provider: "groq",
+        category: "general"
+    },
+    {
+        id: "qwen/qwen3-32b",
+        name: "Qwen3 32B",
+        description: "Powerful 32B model via Groq",
+        icon: "cpu",
+        type: "chat",
+        provider: "groq",
+        category: "fast"
     },
     {
         id: "deepseek/deepseek-r1-0528:free",
@@ -116,12 +133,12 @@ const MODELS = [
     },
     {
         id: "nvidia/nemotron-nano-12b-v2-vl:free",
-        name: "GPT 5.2 Pro",
+        name: "GPT 5 Fast",
         description: "Vision-language model for image understanding",
         icon: "image",
         type: "chat",
         provider: "openrouter",
-        category: "pro"
+        category: "fast"
     },
     {
         id: "qwen/qwen3-vl-235b-a22b-thinking",
@@ -157,7 +174,7 @@ const MODELS = [
         icon: "pen-tool",
         type: "chat",
         provider: "openrouter",
-        category: "general"
+        category: "creative"
     },
     {
         id: "stepfun/step-3.5-flash:free",
@@ -175,7 +192,7 @@ const MODELS = [
         icon: "message-circle",
         type: "chat",
         provider: "openrouter",
-        category: "creative"
+        category: "fast"
     },
     {
         id: "openrouter/aurora-alpha",
