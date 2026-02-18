@@ -52,6 +52,214 @@ function scrollToBottom() {
     if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
+function sanitizeStudyMode(mode) {
+    if (typeof mode !== "string") return "standard";
+    return Object.hasOwn(STUDY_MODE_PROMPTS, mode) ? mode : "standard";
+}
+
+function setStudyMode(mode) {
+    studyMode = sanitizeStudyMode(mode);
+    localStorage.setItem(STORAGE_KEYS.studyMode, studyMode);
+    if (studyModeSelect) {
+        studyModeSelect.value = studyMode;
+    }
+}
+
+function setPinnedContext(value) {
+    pinnedContext = String(value || "").trim();
+    localStorage.setItem(STORAGE_KEYS.pinnedContext, pinnedContext);
+    if (pinnedContextInput && pinnedContextInput.value !== value) {
+        pinnedContextInput.value = value;
+    }
+}
+
+function setStudentToolsExpanded(expanded, shouldPersist = true) {
+    studentToolsExpanded = Boolean(expanded);
+
+    const section = document.getElementById("studentToolsSection");
+    if (section) {
+        section.classList.toggle("collapsed", !studentToolsExpanded);
+    }
+
+    const toggleBtn = document.getElementById("studentToolsToggleButton");
+    if (toggleBtn) {
+        toggleBtn.setAttribute("aria-expanded", String(studentToolsExpanded));
+    }
+
+    if (shouldPersist) {
+        localStorage.setItem(STORAGE_KEYS.studentToolsExpanded, studentToolsExpanded ? "true" : "false");
+    }
+}
+
+function toggleStudentToolsSection() {
+    setStudentToolsExpanded(!studentToolsExpanded);
+}
+
+function getCombinedStudyInstruction() {
+    const modePrompt = STUDY_MODE_PROMPTS[studyMode] || "";
+    const pinnedPrompt = pinnedContext
+        ? `Pinned study material:\n${pinnedContext}`
+        : "";
+
+    return [modePrompt, pinnedPrompt]
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+}
+
+function formatPomodoroTime(totalSeconds) {
+    const safe = Math.max(0, Number(totalSeconds) || 0);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function updatePomodoroUI() {
+    if (pomodoroTimeLabel) {
+        pomodoroTimeLabel.textContent = formatPomodoroTime(pomodoroSecondsLeft);
+    }
+
+    if (pomodoroPhaseLabel) {
+        pomodoroPhaseLabel.textContent = pomodoroPhase === "focus" ? "Focus" : "Break";
+    }
+
+    if (pomodoroToggleButton) {
+        pomodoroToggleButton.textContent = pomodoroRunning ? "Pause" : "Start";
+    }
+}
+
+function resetPomodoro() {
+    pomodoroPhase = "focus";
+    pomodoroSecondsLeft = POMODORO_FOCUS_SECONDS;
+    pomodoroRunning = false;
+
+    if (pomodoroIntervalId) {
+        clearInterval(pomodoroIntervalId);
+        pomodoroIntervalId = null;
+    }
+
+    updatePomodoroUI();
+}
+
+function tickPomodoro() {
+    pomodoroSecondsLeft -= 1;
+
+    if (pomodoroSecondsLeft > 0) {
+        updatePomodoroUI();
+        return;
+    }
+
+    pomodoroPhase = pomodoroPhase === "focus" ? "break" : "focus";
+    pomodoroSecondsLeft = pomodoroPhase === "focus" ? POMODORO_FOCUS_SECONDS : POMODORO_BREAK_SECONDS;
+    updatePomodoroUI();
+
+    const phaseMessage = pomodoroPhase === "focus"
+        ? "Break finished. Time to focus again."
+        : "Focus session complete. Take a short break.";
+    addMessage("assistant", phaseMessage, false);
+}
+
+function togglePomodoro() {
+    pomodoroRunning = !pomodoroRunning;
+
+    if (pomodoroRunning) {
+        pomodoroIntervalId = setInterval(tickPomodoro, 1000);
+    } else if (pomodoroIntervalId) {
+        clearInterval(pomodoroIntervalId);
+        pomodoroIntervalId = null;
+    }
+
+    updatePomodoroUI();
+}
+
+function initStudyFeatures() {
+    const savedStudyMode = localStorage.getItem(STORAGE_KEYS.studyMode) || "standard";
+    const savedPinnedContext = localStorage.getItem(STORAGE_KEYS.pinnedContext) || "";
+    const savedExpanded = localStorage.getItem(STORAGE_KEYS.studentToolsExpanded);
+
+    setStudyMode(savedStudyMode);
+    setPinnedContext(savedPinnedContext);
+    setStudentToolsExpanded(savedExpanded === "true", false);
+    resetPomodoro();
+
+    // Re-query DOM at bind time to avoid stale null references from constants.js
+    const toggleBtn = document.getElementById("studentToolsToggleButton");
+    if (toggleBtn && !toggleBtn.dataset.bound) {
+        toggleBtn.addEventListener("click", toggleStudentToolsSection);
+        toggleBtn.dataset.bound = "true";
+    }
+
+    if (studyModeSelect && !studyModeSelect.dataset.bound) {
+        studyModeSelect.addEventListener("change", (event) => {
+            setStudyMode(event.target.value);
+        });
+        studyModeSelect.dataset.bound = "true";
+    }
+
+    if (pinnedContextInput && !pinnedContextInput.dataset.bound) {
+        pinnedContextInput.addEventListener("input", (event) => {
+            setPinnedContext(event.target.value);
+        });
+        pinnedContextInput.dataset.bound = "true";
+    }
+
+    if (pomodoroToggleButton && !pomodoroToggleButton.dataset.bound) {
+        pomodoroToggleButton.addEventListener("click", togglePomodoro);
+        pomodoroToggleButton.dataset.bound = "true";
+    }
+
+    if (pomodoroResetButton && !pomodoroResetButton.dataset.bound) {
+        pomodoroResetButton.addEventListener("click", resetPomodoro);
+        pomodoroResetButton.dataset.bound = "true";
+    }
+}
+
+function buildFlashcardTextFromMessage(content) {
+    const messageText = getTextFromContent(content).trim();
+    if (!messageText) return "";
+
+    const rawLines = messageText
+        .split("\n")
+        .map((line) => line.replace(/^[-*\d.\s]+/, "").trim())
+        .filter(Boolean)
+        .slice(0, 12);
+
+    if (rawLines.length === 0) return "";
+
+    const cards = rawLines.map((line, index) => {
+        const splitIndex = line.indexOf(":");
+
+        if (splitIndex > 0 && splitIndex < line.length - 1) {
+            const question = line.slice(0, splitIndex).trim();
+            const answer = line.slice(splitIndex + 1).trim();
+            return `Card ${index + 1}\nQ: ${question}\nA: ${answer}`;
+        }
+
+        return `Card ${index + 1}\nQ: What does this mean?\nA: ${line}`;
+    });
+
+    return `Study Flashcards\n\n${cards.join("\n\n")}`;
+}
+
+function exportFlashcardsFromMessage(content) {
+    const text = buildFlashcardTextFromMessage(content);
+    if (!text) {
+        addMessage("assistant", "Not enough text to generate flashcards from that message.", false);
+        return;
+    }
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `study-flashcards-${dateStamp}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
 function initSendButton() {
     setGenerationState(false);
 }
@@ -112,6 +320,16 @@ function createMessageActions(role, content, messageIndex) {
             copyMessageText(content, copyButton);
         });
         actions.appendChild(copyButton);
+
+        const flashcardButton = document.createElement("button");
+        flashcardButton.type = "button";
+        flashcardButton.className = "message-action-btn";
+        flashcardButton.setAttribute("aria-label", "Export flashcards");
+        flashcardButton.innerHTML = '<i data-lucide="book-open-check"></i>';
+        flashcardButton.addEventListener("click", () => {
+            exportFlashcardsFromMessage(content);
+        });
+        actions.appendChild(flashcardButton);
 
         const chat = getCurrentChat();
         const isLatestAssistant = Number.isInteger(messageIndex)
@@ -539,19 +757,28 @@ async function generateGoogleMediaReply(signal) {
         throw new Error("No valid user message to send.");
     }
 
+    const systemInstruction = getCombinedStudyInstruction();
+    const requestBody = {
+        contents,
+        generationConfig: {
+            temperature: DEFAULT_TEMPERATURE,
+            maxOutputTokens: DEFAULT_MAX_TOKENS
+        }
+    };
+
+    if (systemInstruction) {
+        requestBody.system_instruction = {
+            parts: [{ text: systemInstruction }]
+        };
+    }
+
     const response = await fetch(endpoint, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         signal,
-        body: JSON.stringify({
-            contents,
-            generationConfig: {
-                temperature: DEFAULT_TEMPERATURE,
-                maxOutputTokens: DEFAULT_MAX_TOKENS
-            }
-        })
+        body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -571,6 +798,12 @@ async function streamOpenRouterReply(onChunk, signal) {
         throw new Error("Invalid OpenRouter model selection.");
     }
 
+    const systemInstruction = getCombinedStudyInstruction();
+    const outgoingMessages = buildOpenRouterMessages(messages);
+    if (systemInstruction) {
+        outgoingMessages.unshift({ role: "system", content: systemInstruction });
+    }
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -585,7 +818,7 @@ async function streamOpenRouterReply(onChunk, signal) {
             temperature: DEFAULT_TEMPERATURE,
             max_tokens: DEFAULT_MAX_TOKENS,
             stream: true,
-            messages: buildOpenRouterMessages(messages)
+            messages: outgoingMessages
         })
     });
 
@@ -648,13 +881,24 @@ async function streamGoogleReply(onChunk, signal) {
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel.id)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
 
-    const createRequestBody = (contents) => ({
-        contents,
-        generationConfig: {
-            temperature: DEFAULT_TEMPERATURE,
-            maxOutputTokens: DEFAULT_MAX_TOKENS
+    const createRequestBody = (contents) => {
+        const requestBody = {
+            contents,
+            generationConfig: {
+                temperature: DEFAULT_TEMPERATURE,
+                maxOutputTokens: DEFAULT_MAX_TOKENS
+            }
+        };
+
+        const systemInstruction = getCombinedStudyInstruction();
+        if (systemInstruction) {
+            requestBody.system_instruction = {
+                parts: [{ text: systemInstruction }]
+            };
         }
-    });
+
+        return requestBody;
+    };
 
     let contents = buildGoogleContents(messages);
     if (contents.length === 0) {
@@ -782,6 +1026,7 @@ async function handleAssistantReply() {
             if (typeof marked !== "undefined") {
                 streamedContentDiv.innerHTML = marked.parse(streamedText);
                 applyCodeHighlighting(streamedContentDiv);
+                renderMathInContainer(streamedContentDiv);
             } else {
                 streamedContentDiv.textContent = streamedText;
             }
@@ -1042,6 +1287,8 @@ async function importChatsFromFileInput(event) {
 window.exportChatsToFile = exportChatsToFile;
 window.importChatsFromFileInput = importChatsFromFileInput;
 window.initSendButton = initSendButton;
+window.initStudyFeatures = initStudyFeatures;
+window.toggleStudentToolsSection = toggleStudentToolsSection;
 
 function loadChats() {
     const savedChats = localStorage.getItem(STORAGE_KEYS.chats);

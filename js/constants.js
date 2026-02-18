@@ -8,11 +8,20 @@ const imagePreview = document.getElementById("imagePreview");
 const chatList = document.getElementById("chatList");
 const newChatButton = document.getElementById("newChatButton");
 const clearAllChatsButton = document.getElementById("clearAllChatsButton");
+const studentToolsToggleButton = document.getElementById("studentToolsToggleButton");
+const studentToolsSection = document.getElementById("studentToolsSection");
+const studentToolsChevron = document.getElementById("studentToolsChevron");
+const pinnedContextInput = document.getElementById("pinnedContextInput");
+const pomodoroTimeLabel = document.getElementById("pomodoroTimeLabel");
+const pomodoroPhaseLabel = document.getElementById("pomodoroPhaseLabel");
+const pomodoroToggleButton = document.getElementById("pomodoroToggleButton");
+const pomodoroResetButton = document.getElementById("pomodoroResetButton");
 const chatSearchInput = document.getElementById("chatSearchInput");
 const settingsButton = document.getElementById("settingsButton");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsButton = document.getElementById("closeSettingsButton");
 const themeSelect = document.getElementById("themeSelect");
+const studyModeSelect = document.getElementById("studyModeSelect");
 const exportChatsButton = document.getElementById("exportChatsButton");
 const importChatsButton = document.getElementById("importChatsButton");
 const importChatsInput = document.getElementById("importChatsInput");
@@ -68,6 +77,14 @@ const CHAT_MODEL_IDS = new Set([
 ]);
 
 const ASSISTANT_ERROR_MESSAGE = "Sorry, something went wrong while generating a response. Please try again.";
+const STUDY_MODE_PROMPTS = {
+    standard: "",
+    tutor: "You are a patient tutor. Do not provide final answers immediately. Guide with short hints, ask leading questions, and explain steps clearly.",
+    proofreader: "You are a proofreading assistant. Focus on grammar, clarity, structure, and tone. Provide concrete suggestions and a corrected version when useful."
+};
+
+const POMODORO_FOCUS_SECONDS = 25 * 60;
+const POMODORO_BREAK_SECONDS = 5 * 60;
 
 const MODELS = [
     {
@@ -203,7 +220,10 @@ const STORAGE_KEYS = {
     activeChatId: "eysic.activeChatId",
     model: "eysic.model",
     theme: "eysic.theme",
-    search: "eysic.search"
+    search: "eysic.search",
+    studyMode: "eysic.studyMode",
+    pinnedContext: "eysic.pinnedContext",
+    studentToolsExpanded: "eysic.studentToolsExpanded"
 };
 
 const THEME_CLASS_MAP = {
@@ -223,5 +243,12 @@ let activeRequestController = null;
 let isGenerating = false;
 let chatSearchQuery = "";
 let benchmarkModeEnabled = false;
+let studyMode = "standard";
+let pinnedContext = "";
+let pomodoroPhase = "focus";
+let pomodoroSecondsLeft = POMODORO_FOCUS_SECONDS;
+let pomodoroIntervalId = null;
+let pomodoroRunning = false;
+let studentToolsExpanded = false;
 
 window.benchmarkModeEnabled = benchmarkModeEnabled;

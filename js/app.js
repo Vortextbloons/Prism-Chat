@@ -48,6 +48,9 @@ if (imageInput) {
 configureMarkdown();
 initTheme();
 initSettingsUI();
+if (typeof window.initStudyFeatures === "function") {
+    window.initStudyFeatures();
+}
 initModelSelector();
 loadChats();
 autoGrowTextarea();
@@ -55,3 +58,14 @@ if (typeof window.initSendButton === "function") {
     window.initSendButton();
 }
 if (window.lucide) lucide.createIcons();
+
+// Fallback: ensure student tools toggle is always bound
+const _toggleBtn = document.getElementById("studentToolsToggleButton");
+if (_toggleBtn && !_toggleBtn.dataset.bound) {
+    _toggleBtn.addEventListener("click", function () {
+        if (typeof window.toggleStudentToolsSection === "function") {
+            window.toggleStudentToolsSection();
+        }
+    });
+    _toggleBtn.dataset.bound = "true";
+}

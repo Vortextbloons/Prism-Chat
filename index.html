@@ -9,6 +9,7 @@
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
 	<link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,6 +27,28 @@
 			<button id="clearAllChatsButton" class="sidebar-button" type="button">
                 <i data-lucide="trash-2"></i> Delete All
             </button>
+            <button id="studentToolsToggleButton" class="sidebar-button student-toggle" type="button" aria-expanded="false" aria-controls="studentToolsSection">
+                <i data-lucide="graduation-cap"></i>
+                Student Tools
+                <i id="studentToolsChevron" data-lucide="chevron-down" class="student-toggle-chevron"></i>
+            </button>
+            <div id="studentToolsSection" class="student-tools-section collapsed">
+                <div class="study-panel">
+                    <label for="pinnedContextInput" class="study-label">Pinned Study Material</label>
+                    <textarea id="pinnedContextInput" class="study-input" rows="4" placeholder="Paste rubric, notes, or instructions here..."></textarea>
+                </div>
+                <div class="pomodoro-card" aria-label="Pomodoro timer">
+                    <div class="pomodoro-top">
+                        <span class="pomodoro-title">Pomodoro</span>
+                        <span id="pomodoroPhaseLabel" class="pomodoro-phase">Focus</span>
+                    </div>
+                    <div id="pomodoroTimeLabel" class="pomodoro-time">25:00</div>
+                    <div class="pomodoro-actions">
+                        <button id="pomodoroToggleButton" class="pomodoro-button" type="button">Start</button>
+                        <button id="pomodoroResetButton" class="pomodoro-button" type="button">Reset</button>
+                    </div>
+                </div>
+            </div>
 			<input id="chatSearchInput" class="chat-search-input" type="search" placeholder="Search chats..." aria-label="Search chats" />
 			<section id="chatList" class="chat-list" aria-label="Chat history"></section>
 			<button id="settingsButton" class="sidebar-button" type="button">
@@ -88,6 +111,12 @@
                     <option value="oled">OLED</option>
                     <option value="amethyst">Amethyst</option>
                 </select>
+                <label for="studyModeSelect">Study Mode</label>
+                <select id="studyModeSelect" class="theme-select">
+                    <option value="standard">Standard</option>
+                    <option value="tutor">Tutor</option>
+                    <option value="proofreader">Proofreader</option>
+                </select>
                 <button id="exportChatsButton" class="settings-button" type="button">
                     <i data-lucide="download"></i> Export Chats
                 </button>
@@ -100,6 +129,8 @@
     </div>
 
 	<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script>
       // Initialize icons

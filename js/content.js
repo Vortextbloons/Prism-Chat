@@ -16,6 +16,22 @@ function getTextFromContent(content) {
     return "";
 }
 
+function renderMathInContainer(container) {
+    if (!container || typeof renderMathInElement !== "function") return;
+
+    try {
+        renderMathInElement(container, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false }
+            ],
+            throwOnError: false
+        });
+    } catch {
+        // Silently ignore KaTeX rendering errors
+    }
+}
+
 function getImageFromContent(content) {
     if (content && typeof content === "object" && typeof content.imageDataUrl === "string") {
         return content.imageDataUrl;
@@ -58,6 +74,7 @@ function renderAssistantContent(container, content, isMarkdown = false) {
         const textNode = document.createElement("div");
         if (isMarkdown && typeof marked !== "undefined") {
             textNode.innerHTML = marked.parse(text);
+            renderMathInContainer(textNode);
         } else {
             textNode.textContent = text;
         }
@@ -213,6 +230,10 @@ function mapMessageForOpenRouter(message) {
     const text = getTextFromContent(message?.content);
     const imageUrl = getImageFromContent(message?.content);
 
+    if (role !== "user" && role !== "assistant" && role !== "system") {
+        return null;
+    }
+
     if (role === "user" && imageUrl) {
         const multimodalContent = [];
         if (text) {
@@ -236,5 +257,5 @@ function mapMessageForOpenRouter(message) {
 }
 
 function buildOpenRouterMessages(sourceMessages) {
-    return sourceMessages.map(mapMessageForOpenRouter);
+    return sourceMessages.map(mapMessageForOpenRouter).filter(Boolean);
 }

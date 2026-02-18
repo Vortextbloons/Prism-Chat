@@ -204,6 +204,114 @@ padding: 16px;
     border-color: var(--border-focus);
 }
 
+.student-toggle {
+    justify-content: space-between;
+}
+
+.student-toggle-chevron {
+    margin-left: auto;
+    transition: transform 0.2s;
+}
+
+.student-toggle[aria-expanded="true"] .student-toggle-chevron {
+    transform: rotate(180deg);
+}
+
+.student-tools-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.student-tools-section.collapsed {
+    display: none;
+}
+
+.study-panel {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+}
+
+.study-label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.study-input {
+    width: 100%;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.82rem;
+    padding: 8px;
+    resize: vertical;
+    min-height: 74px;
+}
+
+.study-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.pomodoro-card {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+}
+
+.pomodoro-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.pomodoro-title {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.pomodoro-phase {
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+}
+
+.pomodoro-time {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    margin-bottom: 8px;
+}
+
+.pomodoro-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.pomodoro-button {
+    flex: 1;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    padding: 7px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.pomodoro-button:hover {
+    background: var(--bg-card-hover);
+}
+
 .chat-search-input {
     width: 100%;
     margin-top: 10px;
