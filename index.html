@@ -58,22 +58,36 @@
 
 		<section class="chat-app" aria-label="AI chat application">
 			<header class="chat-header">
-                <!-- Custom Model Selector -->
-                <div class="model-selector-wrapper">
-                    <button id="modelSelectorBtn" class="model-selector-btn" aria-expanded="false">
-                        <div id="selectedModelIcon">
-                            <i data-lucide="box"></i>
+                <div class="header-controls">
+                    <div class="model-selector-wrapper">
+                        <button id="modelSelectorBtn" class="model-selector-btn" aria-expanded="false">
+                            <div id="selectedModelIcon">
+                                <i data-lucide="box"></i>
+                            </div>
+                            <div class="model-info">
+                                <span id="selectedModelName">Select Model</span>
+                                <span id="selectedModelLabel" class="model-label">Current Model</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="dropdown-chevron"></i>
+                        </button>
+
+                        <div id="modelDropdown" class="model-dropdown hidden">
+                            <!-- Dropdown items will be injected here -->
                         </div>
-                        <div class="model-info">
-                            <span id="selectedModelName">Select Model</span>
-                            <span class="model-label">Current Model</span>
-                        </div>
-                        <i data-lucide="chevron-down" class="dropdown-chevron"></i>
-                    </button>
-                    
-                    <div id="modelDropdown" class="model-dropdown hidden">
-                        <!-- Dropdown items will be injected here -->
                     </div>
+
+                    <button id="compareModeButton" class="compare-mode-button" type="button" aria-pressed="false">
+                        <i data-lucide="split-square-vertical"></i>
+                        Compare Off
+                    </button>
+                </div>
+
+                <div id="compareTray" class="compare-tray hidden" aria-live="polite">
+                    <div class="compare-tray-header">
+                        <span>Compare Models</span>
+                        <span class="compare-tray-caption">Select up to 4 models from the dropdown.</span>
+                    </div>
+                    <div id="compareSelectionList" class="compare-selection-list"></div>
                 </div>
 			</header>
 

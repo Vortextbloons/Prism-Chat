@@ -1,6 +1,10 @@
 function getTextFromContent(content) {
     if (typeof content === "string") return content;
 
+    if (isCompareBundleContent(content)) {
+        return getTextFromCompareBundle(content);
+    }
+
     if (Array.isArray(content)) {
         return content
             .filter((part) => part?.type === "text" && typeof part.text === "string")
@@ -14,6 +18,83 @@ function getTextFromContent(content) {
     }
 
     return "";
+}
+
+function isCompareBundleContent(content) {
+    return Boolean(
+        content
+        && typeof content === "object"
+        && content.type === "compare_bundle"
+        && Array.isArray(content.variants)
+    );
+}
+
+function getCompareBundleVariant(content, modelId) {
+    if (!isCompareBundleContent(content)) return null;
+    return content.variants.find((variant) => variant.modelId === modelId) || null;
+}
+
+function getActiveCompareVariant(content) {
+    if (!isCompareBundleContent(content)) return null;
+
+    const preferredModelId = content.activeModelId || content.variants[0]?.modelId;
+    return getCompareBundleVariant(content, preferredModelId) || content.variants[0] || null;
+}
+
+function getTextFromCompareBundle(content) {
+    const activeVariant = getActiveCompareVariant(content);
+    if (activeVariant?.text) {
+        return activeVariant.text;
+    }
+
+    return content.variants
+        .map((variant) => variant.text || "")
+        .filter(Boolean)
+        .join("\n\n");
+}
+
+function getSearchableTextFromContent(content) {
+    if (!isCompareBundleContent(content)) {
+        return getTextFromContent(content);
+    }
+
+    return content.variants
+        .map((variant) => `${variant.modelName || variant.modelId}\n${variant.text || ""}`)
+        .join("\n\n");
+}
+
+function createCompareBundleContent(targetModels) {
+    const variants = targetModels.map((model) => ({
+        modelId: model.id,
+        modelName: model.name,
+        provider: model.provider,
+        text: "",
+        status: "pending",
+        error: ""
+    }));
+
+    return {
+        type: "compare_bundle",
+        activeModelId: variants[0]?.modelId || "",
+        variants
+    };
+}
+
+function setActiveCompareVariant(content, modelId) {
+    if (!isCompareBundleContent(content)) return;
+    if (!getCompareBundleVariant(content, modelId)) return;
+    content.activeModelId = modelId;
+}
+
+function updateCompareVariant(content, modelId, updates) {
+    const variant = getCompareBundleVariant(content, modelId);
+    if (!variant) return;
+
+    Object.assign(variant, updates);
+
+    if (!content.activeModelId) {
+        content.activeModelId = modelId;
+    }
 }
 
 function renderMathInContainer(container) {
@@ -65,6 +146,11 @@ function renderUserContent(container, content) {
 }
 
 function renderAssistantContent(container, content, isMarkdown = false) {
+    if (isCompareBundleContent(content)) {
+        renderCompareBundleContent(container, content, isMarkdown);
+        return;
+    }
+
     const text = getTextFromContent(content);
     const imageUrl = getImageFromContent(content);
     const videoUrl = typeof content === "object" && content ? content.videoUrl : "";
@@ -103,6 +189,77 @@ function renderAssistantContent(container, content, isMarkdown = false) {
         audioNode.controls = true;
         audioNode.className = "generated-media";
         container.appendChild(audioNode);
+    }
+}
+
+function renderCompareBundleContent(container, content) {
+    const compareRoot = container.querySelector(".compare-bundle") || document.createElement("div");
+    compareRoot.className = "compare-bundle";
+    compareRoot.innerHTML = "";
+
+    const tabs = document.createElement("div");
+    tabs.className = "compare-bundle-tabs";
+
+    const activeVariant = getActiveCompareVariant(content) || content.variants[0] || null;
+
+    content.variants.forEach((variant) => {
+        const tab = document.createElement("button");
+        tab.type = "button";
+        tab.className = `compare-tab ${activeVariant?.modelId === variant.modelId ? "active" : ""}`;
+        tab.dataset.modelId = variant.modelId;
+        tab.dataset.status = variant.status || "pending";
+        tab.innerHTML = `
+            <span class="compare-tab-status" aria-hidden="true"></span>
+            <span>${variant.modelName || variant.modelId}</span>
+        `;
+        tab.addEventListener("click", () => {
+            setActiveCompareVariant(content, variant.modelId);
+            renderCompareBundleContent(container, content);
+            if (typeof saveChats === "function") {
+                saveChats();
+            }
+        });
+        tabs.appendChild(tab);
+    });
+
+    const panel = document.createElement("div");
+    panel.className = "compare-panel";
+
+    const panelMeta = document.createElement("div");
+    panelMeta.className = "compare-panel-meta";
+    panelMeta.innerHTML = `
+        <span>${activeVariant?.modelName || "Model"}</span>
+        <span class="compare-panel-status">${activeVariant?.status || "pending"}</span>
+    `;
+    panel.appendChild(panelMeta);
+
+    const panelBody = document.createElement("div");
+    panelBody.className = "compare-panel-body";
+
+    if (activeVariant?.text) {
+        if (typeof marked !== "undefined") {
+            panelBody.innerHTML = marked.parse(activeVariant.text);
+            renderMathInContainer(panelBody);
+            applyCodeHighlighting(panelBody);
+        } else {
+            panelBody.textContent = activeVariant.text;
+        }
+    } else if (activeVariant?.status === "error") {
+        panelBody.innerHTML = `<div class="compare-error">${activeVariant.error || ASSISTANT_ERROR_MESSAGE}</div>`;
+    } else if (activeVariant?.status === "stopped") {
+        panelBody.innerHTML = '<div class="compare-placeholder">Generation stopped before this model finished.</div>';
+    } else if (activeVariant?.status === "streaming") {
+        panelBody.innerHTML = '<div class="compare-placeholder">Streaming response...</div>';
+    } else {
+        panelBody.innerHTML = '<div class="compare-placeholder">Waiting for model response...</div>';
+    }
+
+    panel.appendChild(panelBody);
+    compareRoot.appendChild(tabs);
+    compareRoot.appendChild(panel);
+
+    if (!compareRoot.parentElement) {
+        container.appendChild(compareRoot);
     }
 }
 

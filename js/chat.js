@@ -372,6 +372,12 @@ function createMessageActions(role, content, messageIndex) {
 function createMessageElement(role, content, isMarkdown = false, messageIndex = null) {
     const messageElement = document.createElement("div");
     messageElement.className = `message ${role === "user" ? "user" : "assistant"}`;
+    if (Number.isInteger(messageIndex)) {
+        messageElement.dataset.messageIndex = String(messageIndex);
+    }
+    if (isCompareBundleContent(content)) {
+        messageElement.classList.add("message-compare");
+    }
 
     const avatar = document.createElement("div");
     avatar.className = "message-avatar";
@@ -439,6 +445,21 @@ function renderMessages() {
     scrollToBottom();
 }
 
+function getMessageElementByIndex(messageIndex) {
+    if (!chatWindow || !Number.isInteger(messageIndex)) return null;
+    return chatWindow.querySelector(`.message[data-message-index="${messageIndex}"]`);
+}
+
+function rerenderCompareBundleMessage(messageIndex, content) {
+    const messageElement = getMessageElementByIndex(messageIndex);
+    if (!messageElement || !isCompareBundleContent(content)) return;
+
+    const contentElement = messageElement.querySelector(".message-content");
+    if (!contentElement) return;
+
+    renderCompareBundleContent(contentElement, content, true);
+}
+
 function setChatSearchQuery(value) {
     chatSearchQuery = String(value || "").trim().toLowerCase();
     localStorage.setItem(STORAGE_KEYS.search, value || "");
@@ -452,7 +473,7 @@ function chatMatchesSearch(chat) {
     if (title.includes(chatSearchQuery)) return true;
 
     const conversationText = (chat.messages || [])
-        .map((message) => getTextFromContent(message.content))
+        .map((message) => getSearchableTextFromContent(message.content))
         .join("\n")
         .toLowerCase();
 
@@ -743,16 +764,65 @@ function parseGoogleGenerationResult(payload, modelType) {
     };
 }
 
-async function generateGoogleMediaReply(signal) {
+function createBufferedRenderer(renderCallback) {
+    let text = "";
+    let scheduled = false;
+
+    const renderNow = () => {
+        scheduled = false;
+        renderCallback(text);
+    };
+
+    return {
+        append(chunkText) {
+            text += chunkText;
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(renderNow);
+        },
+        flush() {
+            if (scheduled) {
+                scheduled = false;
+            }
+            renderCallback(text);
+        },
+        getText() {
+            return text;
+        }
+    };
+}
+
+function renderMarkdownText(container, text) {
+    if (!container) return;
+
+    if (typeof marked !== "undefined") {
+        container.innerHTML = marked.parse(text);
+        applyCodeHighlighting(container);
+        renderMathInContainer(container);
+    } else {
+        container.textContent = text;
+    }
+}
+
+function getTypingLabelForModel(model) {
+    return model?.type === "video"
+        ? "Generating video..."
+        : model?.type === "music"
+            ? "Generating audio..."
+            : model?.type === "image"
+                ? "Generating image..."
+                : "Thinking...";
+}
+
+async function generateGoogleMediaReply(selectedModel, sourceMessages, signal) {
     const apiKey = GOOGLE_API_KEY.trim();
-    const selectedModel = getSelectedModel();
 
     if (!selectedModel || selectedModel.provider !== "google") {
         throw new Error("Invalid Google model selection.");
     }
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel.id)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const contents = buildGoogleContents(messages);
+    const contents = buildGoogleContents(sourceMessages);
     if (contents.length === 0) {
         throw new Error("No valid user message to send.");
     }
@@ -790,16 +860,15 @@ async function generateGoogleMediaReply(signal) {
     return parseGoogleGenerationResult(payload, selectedModel.type);
 }
 
-async function streamOpenRouterReply(onChunk, signal) {
+async function streamOpenRouterReply(selectedModel, sourceMessages, onChunk, signal) {
     const apiKey = OPENROUTER_API_KEY.trim();
-    const selectedModel = getSelectedModel();
 
     if (!selectedModel || selectedModel.provider !== "openrouter") {
         throw new Error("Invalid OpenRouter model selection.");
     }
 
     const systemInstruction = getCombinedStudyInstruction();
-    const outgoingMessages = buildOpenRouterMessages(messages);
+    const outgoingMessages = buildOpenRouterMessages(sourceMessages);
     if (systemInstruction) {
         outgoingMessages.unshift({ role: "system", content: systemInstruction });
     }
@@ -863,9 +932,8 @@ async function streamOpenRouterReply(onChunk, signal) {
     }
 }
 
-async function streamGoogleReply(onChunk, signal) {
+async function streamGoogleReply(selectedModel, sourceMessages, onChunk, signal) {
     const apiKey = GOOGLE_API_KEY.trim();
-    const selectedModel = getSelectedModel();
 
     if (!selectedModel) {
         throw new Error("Invalid model selection.");
@@ -900,7 +968,7 @@ async function streamGoogleReply(onChunk, signal) {
         return requestBody;
     };
 
-    let contents = buildGoogleContents(messages);
+    let contents = buildGoogleContents(sourceMessages);
     if (contents.length === 0) {
         throw new Error("No valid user message to send.");
     }
@@ -970,16 +1038,15 @@ async function streamGoogleReply(onChunk, signal) {
     }
 }
 
-async function streamGroqReply(onChunk, signal) {
+async function streamGroqReply(selectedModel, sourceMessages, onChunk, signal) {
     const apiKey = Groq_API_KEY.trim();
-    const selectedModel = getSelectedModel();
 
     if (!selectedModel || selectedModel.provider !== "groq") {
         throw new Error("Invalid Groq model selection.");
     }
 
     const systemInstruction = getCombinedStudyInstruction();
-    const outgoingMessages = buildOpenRouterMessages(messages);
+    const outgoingMessages = buildOpenRouterMessages(sourceMessages);
     if (systemInstruction) {
         outgoingMessages.unshift({ role: "system", content: systemInstruction });
     }
@@ -1041,56 +1108,55 @@ async function streamGroqReply(onChunk, signal) {
     }
 }
 
-async function streamModelReply(onChunk, signal) {
-    const selectedModel = getSelectedModel();
+async function streamModelReply(selectedModel, sourceMessages, onChunk, signal) {
     if (!selectedModel) {
         throw new Error("Invalid model selection.");
     }
 
     if (selectedModel.provider === "google") {
-        await streamGoogleReply(onChunk, signal);
+        await streamGoogleReply(selectedModel, sourceMessages, onChunk, signal);
         return;
     }
 
     if (selectedModel.provider === "openrouter") {
-        await streamOpenRouterReply(onChunk, signal);
+        await streamOpenRouterReply(selectedModel, sourceMessages, onChunk, signal);
         return;
     }
 
     if (selectedModel.provider === "groq") {
-        await streamGroqReply(onChunk, signal);
+        await streamGroqReply(selectedModel, sourceMessages, onChunk, signal);
         return;
     }
 
     throw new Error("Unsupported model provider.");
 }
 
-async function handleAssistantReply() {
-    const selectedModel = getSelectedModel();
-    const typingLabel = selectedModel?.type === "video"
-        ? "Generating video..."
-        : selectedModel?.type === "music"
-            ? "Generating audio..."
-            : selectedModel?.type === "image"
-                ? "Generating image..."
-                : "Thinking...";
-    addTypingIndicator(typingLabel);
+async function handleSingleAssistantReply(selectedModel, sourceMessages) {
+    addTypingIndicator(getTypingLabelForModel(selectedModel));
     setGenerationState(true);
-    activeRequestController = new AbortController();
-    const { signal } = activeRequestController;
+
+    const controller = new AbortController();
+    activeRequestController = controller;
+    const { signal } = controller;
 
     let streamedElement = null;
     let streamedContentDiv = null;
-    let streamedText = "";
+
+    const renderer = createBufferedRenderer((text) => {
+        if (!streamedContentDiv) return;
+        renderMarkdownText(streamedContentDiv, text);
+        scrollToBottom();
+    });
 
     try {
         if (selectedModel && isGenerationModelType(selectedModel.type)) {
-            const generatedContent = await generateGoogleMediaReply(signal);
+            const generatedContent = await generateGoogleMediaReply(selectedModel, sourceMessages, signal);
+            removeTypingIndicator();
             addMessage("assistant", generatedContent);
             return;
         }
 
-        await streamModelReply((chunkText) => {
+        await streamModelReply(selectedModel, sourceMessages, (chunkText) => {
             if (!streamedElement) {
                 removeTypingIndicator();
                 streamedElement = createMessageElement("assistant", "", true);
@@ -1098,22 +1164,16 @@ async function handleAssistantReply() {
                 chatWindow.appendChild(streamedElement);
             }
 
-            streamedText += chunkText;
-            if (typeof marked !== "undefined") {
-                streamedContentDiv.innerHTML = marked.parse(streamedText);
-                applyCodeHighlighting(streamedContentDiv);
-                renderMathInContainer(streamedContentDiv);
-            } else {
-                streamedContentDiv.textContent = streamedText;
-            }
-            scrollToBottom();
+            renderer.append(chunkText);
         }, signal);
 
-        if (!streamedText.trim()) return;
+        const streamedText = renderer.getText().trim();
+        renderer.flush();
+        if (!streamedText) return;
 
         const chat = getCurrentChat();
         if (chat) {
-            chat.messages.push({ role: "assistant", content: streamedText.trim() });
+            chat.messages.push({ role: "assistant", content: streamedText });
             messages = chat.messages;
             touchCurrentChat();
             saveChats();
@@ -1121,13 +1181,14 @@ async function handleAssistantReply() {
             renderMessages();
         }
     } catch (error) {
+        const streamedText = renderer.getText().trim();
         const aborted = error?.name === "AbortError";
 
         if (aborted) {
-            if (streamedText.trim()) {
+            if (streamedText) {
                 const chat = getCurrentChat();
                 if (chat) {
-                    chat.messages.push({ role: "assistant", content: streamedText.trim() });
+                    chat.messages.push({ role: "assistant", content: streamedText });
                     messages = chat.messages;
                     touchCurrentChat();
                     saveChats();
@@ -1150,6 +1211,124 @@ async function handleAssistantReply() {
         activeRequestController = null;
         setGenerationState(false);
     }
+}
+
+async function handleCompareAssistantReply(targetModels, sourceMessages) {
+    setGenerationState(true);
+
+    const controllers = targetModels.map(() => new AbortController());
+    activeRequestController = {
+        abort() {
+            controllers.forEach((controller) => controller.abort());
+        }
+    };
+
+    const chat = getCurrentChat();
+    if (!chat) {
+        activeRequestController = null;
+        setGenerationState(false);
+        return;
+    }
+
+    const bundleContent = createCompareBundleContent(targetModels);
+    chat.messages.push({ role: "assistant", content: bundleContent });
+    messages = chat.messages;
+    touchCurrentChat();
+    saveChats();
+    renderChatList();
+    renderMessages();
+
+    const messageIndex = chat.messages.length - 1;
+    let renderScheduled = false;
+
+    const scheduleBundleRender = () => {
+        if (renderScheduled) return;
+        renderScheduled = true;
+        requestAnimationFrame(() => {
+            renderScheduled = false;
+            rerenderCompareBundleMessage(messageIndex, bundleContent);
+            scrollToBottom();
+        });
+    };
+
+    const tasks = targetModels.map(async (model, index) => {
+        const controller = controllers[index];
+
+        if (isGenerationModelType(model.type)) {
+            updateCompareVariant(bundleContent, model.id, {
+                status: "error",
+                error: "Compare mode currently supports chat models only."
+            });
+            scheduleBundleRender();
+            return;
+        }
+
+        updateCompareVariant(bundleContent, model.id, { status: "streaming", error: "" });
+        scheduleBundleRender();
+
+        const renderer = createBufferedRenderer((text) => {
+            updateCompareVariant(bundleContent, model.id, { text, status: "streaming" });
+            scheduleBundleRender();
+        });
+
+        try {
+            await streamModelReply(model, sourceMessages, (chunkText) => {
+                renderer.append(chunkText);
+            }, controller.signal);
+
+            renderer.flush();
+            updateCompareVariant(bundleContent, model.id, {
+                text: renderer.getText().trim(),
+                status: "done",
+                error: ""
+            });
+        } catch (error) {
+            renderer.flush();
+
+            if (error?.name === "AbortError") {
+                updateCompareVariant(bundleContent, model.id, {
+                    text: renderer.getText().trim(),
+                    status: "stopped"
+                });
+                scheduleBundleRender();
+                return;
+            }
+
+            console.error(error);
+            updateCompareVariant(bundleContent, model.id, {
+                text: renderer.getText().trim(),
+                status: "error",
+                error: ASSISTANT_ERROR_MESSAGE
+            });
+        }
+
+        scheduleBundleRender();
+    });
+
+    try {
+        await Promise.allSettled(tasks);
+        messages = chat.messages;
+        touchCurrentChat();
+        saveChats();
+        renderChatList();
+        renderMessages();
+    } finally {
+        activeRequestController = null;
+        setGenerationState(false);
+    }
+}
+
+async function handleAssistantReply() {
+    const targetModels = getRequestedModels();
+    const selectedModel = targetModels[0] || getSelectedModel();
+    const sourceMessages = [...messages];
+
+    if (compareModeEnabled && targetModels.length > 1) {
+        await handleCompareAssistantReply(targetModels, sourceMessages);
+        return;
+    }
+
+    await handleSingleAssistantReply(selectedModel, sourceMessages);
 }
 
 async function submitUserContent(userContent) {
@@ -1239,16 +1418,34 @@ function handleSendMessage(event) {
     const text = messageInput.value.trim();
     if (!text && !pendingImageDataUrl) return;
 
-    const selectedModel = getSelectedModel();
-    if (!CHAT_MODEL_IDS.has(currentModelId) && !isGenerationModelType(selectedModel?.type)) {
-        addMessage("assistant", "Selected model is not configured for chat or generation yet.", false);
+    const targetModels = getRequestedModels();
+    const selectedModel = targetModels[0] || getSelectedModel();
+
+    if (targetModels.length === 0) {
+        addMessage("assistant", "Select at least one model before sending a message.", false);
         return;
     }
 
-    if (pendingImageDataUrl && !MULTIMODAL_MODEL_IDS.has(currentModelId)) {
+    const hasUnsupportedGenerationModel = targetModels.some((model) => {
+        return !CHAT_MODEL_IDS.has(model.id) && !isGenerationModelType(model?.type);
+    });
+
+    if (hasUnsupportedGenerationModel) {
+        addMessage("assistant", "One or more selected models are not configured for chat yet.", false);
+        return;
+    }
+
+    if (compareModeEnabled && targetModels.length > 1 && targetModels.some((model) => isGenerationModelType(model.type))) {
+        addMessage("assistant", "Compare mode currently supports chat models only.", false);
+        return;
+    }
+
+    if (pendingImageDataUrl && targetModels.some((model) => !MULTIMODAL_MODEL_IDS.has(model.id))) {
         addMessage(
             "assistant",
-            "Image input is blocked for this model. Use Gemini 2.5 Flash or Gemini 2.5 Pro.",
+            compareModeEnabled
+                ? "Image input is blocked unless every selected compare model supports images."
+                : "Image input is blocked for this model. Use Gemini 2.5 Flash or Gemini 2.5 Pro.",
             false
         );
         return;
