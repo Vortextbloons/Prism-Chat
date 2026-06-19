@@ -1,4 +1,4 @@
-const CACHE = 'prism-shell-v1'
+const CACHE = 'prism-shell-v2'
 
 function assetUrl(path) {
   return new URL(path, self.location.href).href
