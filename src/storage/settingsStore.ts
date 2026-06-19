@@ -7,7 +7,7 @@ const USAGE_KEY = 'usage'
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   defaultProvider: 'gemini',
-  defaultModel: 'gemini-2.0-flash',
+  defaultModel: 'gemini-2.5-flash',
   temperature: 0.7,
   maxTokens: 4096,
   streamResponses: true,

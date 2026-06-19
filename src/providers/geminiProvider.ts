@@ -189,7 +189,7 @@ export async function testGeminiKey(apiKey: string): Promise<{ ok: boolean; erro
   try {
     await chatGemini(apiKey, {
       provider: 'gemini',
-      model: 'gemini-2.0-flash-lite',
+      model: 'gemini-2.5-flash-lite',
       messages: [{ role: 'user', content: 'Hi' }],
       maxTokens: 16,
       stream: false,

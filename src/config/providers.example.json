@@ -5,7 +5,7 @@
     "long-context": ["gemini", "openrouter", "mistral"],
     "open-source": ["openrouter", "huggingface", "groq", "cerebras"],
     "coding": ["groq", "cerebras", "openrouter", "gemini", "mistral"],
-    "best-free": ["openrouter", "groq", "cerebras", "huggingface", "gemini"]
+    "best-free": ["openrouter", "gemini", "groq"]
   },
   "providers": [
     {

@@ -45,7 +45,7 @@ export async function createChat(
     messages: [],
     systemPrompt: partial?.systemPrompt ?? 'You are a helpful assistant.',
     provider: partial?.provider ?? 'gemini',
-    model: partial?.model ?? 'gemini-2.0-flash',
+    model: partial?.model ?? 'gemini-2.5-flash',
     createdAt: now,
     updatedAt: now,
   }
@@ -152,7 +152,7 @@ export async function importChatFromJson(json: string): Promise<ChatSession> {
         ? parsed.systemPrompt
         : 'You are a helpful assistant.',
     provider: typeof parsed.provider === 'string' && parsed.provider ? parsed.provider : 'gemini',
-    model: typeof parsed.model === 'string' && parsed.model ? parsed.model : 'gemini-2.0-flash',
+    model: typeof parsed.model === 'string' && parsed.model ? parsed.model : 'gemini-2.5-flash',
     createdAt: now,
     updatedAt: now,
   }
