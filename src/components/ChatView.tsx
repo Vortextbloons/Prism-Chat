@@ -48,6 +48,7 @@ import { ImageGenPanel } from './ImageGenPanel'
 type ChatViewProps = {
   chat: ChatSession
   settings: AppSettings
+  isMobile?: boolean
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   onChatUpdated: (chat: ChatSession) => void
@@ -71,7 +72,7 @@ function formatFallbackNotice(attempts: FallbackAttempt[], provider: string): st
   return `Routed to ${used} after ${failed} failed.`
 }
 
-export function ChatView({ chat, settings, sidebarCollapsed, onToggleSidebar, onChatUpdated, onSettingsChange }: ChatViewProps) {
+export function ChatView({ chat, settings, isMobile, sidebarCollapsed, onToggleSidebar, onChatUpdated, onSettingsChange }: ChatViewProps) {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -570,6 +571,7 @@ export function ChatView({ chat, settings, sidebarCollapsed, onToggleSidebar, on
   return (
     <main className="chat-view">
       <ChatTopBar
+        isMobile={isMobile}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={onToggleSidebar}
         providers={enabledProviders.map((p) => ({ id: p.id, name: p.name }))}

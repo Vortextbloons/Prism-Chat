@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/ensure-providers-config.mjs",
+    "predev": "node scripts/ensure-providers-config.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

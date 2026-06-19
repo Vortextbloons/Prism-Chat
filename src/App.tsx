@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppSettings, ChatSession } from './types'
 import { createChat, deleteChat, importChatFromJson, listChats } from './storage/chatStore'
 import { getSettings } from './storage/settingsStore'
 import { ChatView } from './components/ChatView'
 import { Sidebar } from './components/Sidebar'
 import { SettingsPanel } from './components/SettingsPanel'
+import { useMediaQuery } from './hooks/useMediaQuery'
 
 const SIDEBAR_KEY = 'prism-sidebar-collapsed'
 
@@ -14,15 +15,35 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem(SIDEBAR_KEY) === 'true',
-  )
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  const wasMobileRef = useRef(isMobile)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
+      return true
+    }
+    return localStorage.getItem(SIDEBAR_KEY) === 'true'
+  })
 
   useEffect(() => {
-    localStorage.setItem(SIDEBAR_KEY, String(sidebarCollapsed))
-  }, [sidebarCollapsed])
+    if (!isMobile) {
+      localStorage.setItem(SIDEBAR_KEY, String(sidebarCollapsed))
+    }
+  }, [sidebarCollapsed, isMobile])
+
+  useEffect(() => {
+    if (isMobile && !wasMobileRef.current) {
+      setSidebarCollapsed(true)
+    }
+    wasMobileRef.current = isMobile
+  }, [isMobile])
 
   const toggleSidebar = () => setSidebarCollapsed((prev) => !prev)
+  const closeSidebar = () => setSidebarCollapsed(true)
+
+  const handleSelectChat = (id: string) => {
+    setActiveChatId(id)
+    if (isMobile) closeSidebar()
+  }
 
   const refreshChats = useCallback(async () => {
     const items = await listChats()
@@ -96,17 +117,35 @@ export function App() {
     )
   }
 
+  const sidebarOpen = isMobile && !sidebarCollapsed
+
   return (
-    <div className={`app ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <div
+      className={`app ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isMobile ? 'is-mobile' : ''} ${sidebarOpen ? 'sidebar-drawer-open' : ''}`}
+    >
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close sidebar"
+          onClick={closeSidebar}
+        />
+      )}
       <Sidebar
         chats={chats}
         activeChatId={activeChatId}
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleSidebar}
-        onSelectChat={setActiveChatId}
-        onNewChat={() => void handleNewChat()}
+        onSelectChat={handleSelectChat}
+        onNewChat={() => {
+          void handleNewChat()
+          if (isMobile) closeSidebar()
+        }}
         onDeleteChat={(id) => void handleDeleteChat(id)}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={() => {
+          setShowSettings(true)
+          if (isMobile) closeSidebar()
+        }}
         onImportChat={(json) => void handleImportChat(json)}
       />
       <div className="chat-main">
@@ -115,6 +154,7 @@ export function App() {
           key={activeChat.id}
           chat={activeChat}
           settings={settings}
+          isMobile={isMobile}
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={toggleSidebar}
           onChatUpdated={(updated) => {

@@ -7,6 +7,7 @@ type ProviderOption = { id: string; name: string }
 type ModelOption = { id: string; name: string }
 
 type ChatTopBarProps = {
+  isMobile?: boolean
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   providers: ProviderOption[]
@@ -38,6 +39,7 @@ const MODE_SEGMENTS: { id: 'default' | 'coding' | 'best-free'; label: string }[]
 ]
 
 export function ChatTopBar({
+  isMobile,
   sidebarCollapsed,
   onToggleSidebar,
   providers,
@@ -86,12 +88,13 @@ export function ChatTopBar({
   return (
     <header className="chat-topbar">
       <div className="topbar-inner">
-        {sidebarCollapsed && onToggleSidebar && (
+        {(isMobile || sidebarCollapsed) && onToggleSidebar && (
           <button
             type="button"
             className="btn-icon topbar-menu-btn"
             onClick={onToggleSidebar}
-            title="Show sidebar"
+            title={isMobile && !sidebarCollapsed ? 'Close sidebar' : 'Show sidebar'}
+            aria-label={isMobile && !sidebarCollapsed ? 'Close sidebar' : 'Open sidebar'}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 6h18M3 12h18M3 18h18" />

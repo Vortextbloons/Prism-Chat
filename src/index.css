@@ -95,6 +95,7 @@ textarea {
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── App shell ── */
@@ -1945,47 +1946,122 @@ button {
 }
 
 @media (max-width: 768px) {
-  .topbar-inner {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  :root {
+    --chat-gutter: 0.75rem;
   }
 
-  .topbar-model {
-    order: 2;
-    width: 100%;
-  }
-
-  .topbar-modes {
-    order: 3;
-    flex: 1;
-  }
-
-  .topbar-actions {
-    order: 4;
-    margin-left: 0;
-  }
-
-  .app {
-    flex-direction: row;
-  }
-
-  .app:not(.sidebar-collapsed) {
+  .app.is-mobile {
     flex-direction: column;
   }
 
-  .sidebar:not(.collapsed) {
-    width: 100%;
-    max-height: 38vh;
+  .app.is-mobile .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 200;
+    width: min(88vw, var(--sidebar-width));
+    max-height: none;
+    height: 100%;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateX(-105%);
+    transition: transform 0.24s ease, box-shadow 0.24s ease;
+    box-shadow: none;
   }
 
-  .sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
-    max-height: none;
+  .app.is-mobile.sidebar-drawer-open .sidebar:not(.collapsed) {
+    transform: translateX(0);
+    box-shadow: 12px 0 48px rgba(0, 0, 0, 0.45);
+  }
+
+  .app.is-mobile .sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    border: none;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  .app.is-mobile .sidebar.collapsed .sidebar-rail {
+    display: none;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    cursor: pointer;
+    animation: fade-overlay 0.2s ease;
   }
 
   .chat-main {
     flex: 1;
     min-height: 0;
+    width: 100%;
+  }
+
+  .chat-topbar {
+    padding: 0.4rem 0.625rem;
+    padding-top: max(0.4rem, env(safe-area-inset-top));
+  }
+
+  .topbar-inner {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .topbar-menu-btn {
+    flex-shrink: 0;
+  }
+
+  .topbar-model {
+    order: 2;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .model-select .select-trigger,
+  .model-select-wide .select-trigger {
+    min-width: 0;
+    max-width: none;
+    flex: 1;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.6rem;
+  }
+
+  .model-select.select-dropdown,
+  .model-select-wide.select-dropdown {
+    flex: 1 1 0;
+    max-width: none;
+  }
+
+  .topbar-modes {
+    order: 3;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .mode-segment {
+    padding: 0.3rem 0.45rem;
+    font-size: 0.68rem;
+  }
+
+  .topbar-actions {
+    order: 4;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .topbar-btn {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
   }
 
   .feature-cards {
@@ -2008,6 +2084,90 @@ button {
   .select-trigger {
     max-width: none;
     width: 100%;
+    min-width: 0;
+  }
+
+  .message-list {
+    padding-bottom: 1.25rem;
+  }
+
+  .message-action {
+    opacity: 1;
+  }
+
+  .message-image,
+  .message-image.generated {
+    max-width: min(240px, 100%);
+    max-height: 200px;
+  }
+
+  .chat-input-wrapper {
+    padding: 0.5rem var(--chat-gutter) max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .chat-input-card textarea {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 0.75rem 0.875rem 0.4rem;
+  }
+
+  .chat-input-tool {
+    padding: 0.45rem;
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  .input-hint {
+    display: none;
+  }
+
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .compare-panel {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .document-modal,
+  .system-prompt-modal,
+  .image-gen-panel {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar-modes {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .topbar-modes .mode-segment {
+    flex: 1;
+    text-align: center;
+    padding: 0.3rem 0.25rem;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 
