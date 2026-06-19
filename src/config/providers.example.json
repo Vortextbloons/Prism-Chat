@@ -16,13 +16,11 @@
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
       "authHeader": "query",
       "type": "gemini",
-      "defaultModel": "gemini-2.0-flash",
+      "defaultModel": "gemini-2.5-flash",
       "embeddingModel": "text-embedding-004",
       "models": [
-        { "id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "capabilities": ["text", "streaming", "long-context", "image", "json"] },
-        { "id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite", "capabilities": ["text", "streaming", "image"] },
-        { "id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "capabilities": ["text", "streaming", "long-context", "image"] },
-        { "id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "capabilities": ["text", "streaming", "long-context", "image", "json"] }
+        { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "capabilities": ["text", "streaming", "long-context", "image", "json"] },
+        { "id": "gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "capabilities": ["text", "streaming", "image"] }
       ]
     },
     {
@@ -37,7 +35,11 @@
       "defaultModel": "openrouter/free",
       "models": [
         { "id": "openrouter/free", "name": "OpenRouter Free Router", "capabilities": ["text", "streaming"] },
-        { "id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "capabilities": ["text", "streaming"] }
+        { "id": "openai/gpt-oss-120b:free", "name": "GPT OSS 120B (Free)", "capabilities": ["text", "streaming", "tools"] },
+        { "id": "openai/gpt-oss-20b:free", "name": "GPT OSS 20B (Free)", "capabilities": ["text", "streaming", "tools"] },
+        { "id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)", "capabilities": ["text", "streaming"] },
+        { "id": "qwen/qwen3-coder:free", "name": "Qwen 3 Coder (Free)", "capabilities": ["text", "streaming", "tools"] },
+        { "id": "google/gemma-4-31b-it:free", "name": "Gemma 4 31B Instruct (Free)", "capabilities": ["text", "streaming"] }
       ]
     },
     {
@@ -53,7 +55,8 @@
       "models": [
         { "id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "capabilities": ["text", "streaming"] },
         { "id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "capabilities": ["text", "streaming"] },
-        { "id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "capabilities": ["text", "streaming", "long-context"] }
+        { "id": "openai/gpt-oss-120b", "name": "GPT OSS 120B", "capabilities": ["text", "streaming", "tools"] },
+        { "id": "openai/gpt-oss-20b", "name": "GPT OSS 20B", "capabilities": ["text", "streaming", "tools"] }
       ]
     },
     {
@@ -67,8 +70,9 @@
       "type": "openai-compatible",
       "defaultModel": "mistral-small-latest",
       "models": [
-        { "id": "mistral-small-latest", "name": "Mistral Small", "capabilities": ["text", "streaming", "json"] },
-        { "id": "open-mistral-nemo", "name": "Mistral Nemo", "capabilities": ["text", "streaming"] }
+        { "id": "mistral-small-latest", "name": "Mistral Small 4", "capabilities": ["text", "streaming", "json", "tools"] },
+        { "id": "mistral-medium-latest", "name": "Mistral Medium 3.5", "capabilities": ["text", "streaming", "json", "tools"] },
+        { "id": "mistral-large-latest", "name": "Mistral Large 3", "capabilities": ["text", "streaming", "json", "tools"] }
       ]
     },
     {
@@ -95,10 +99,11 @@
       "chatPath": "/chat/completions",
       "authHeader": "Bearer",
       "type": "openai-compatible",
-      "defaultModel": "meta-llama/Meta-Llama-3-8B-Instruct",
+      "defaultModel": "meta-llama/Llama-3.2-3B-Instruct",
       "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
       "models": [
-        { "id": "meta-llama/Meta-Llama-3-8B-Instruct", "name": "Llama 3 8B Instruct", "capabilities": ["text", "streaming", "embeddings"] },
+        { "id": "meta-llama/Llama-3.3-70B-Instruct", "name": "Llama 3.3 70B Instruct", "capabilities": ["text", "streaming", "embeddings"] },
+        { "id": "meta-llama/Llama-3.2-3B-Instruct", "name": "Llama 3.2 3B Instruct", "capabilities": ["text", "streaming"] },
         { "id": "Qwen/Qwen2.5-7B-Instruct", "name": "Qwen 2.5 7B Instruct", "capabilities": ["text", "streaming"] }
       ]
     },
