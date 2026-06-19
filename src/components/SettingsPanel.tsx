@@ -92,7 +92,7 @@ export function SettingsPanel({ settings, onClose, onSettingsChange }: SettingsP
 
         <section>
           <h3>Providers</h3>
-          <p className="hint">API keys are configured in the app. Test connectivity below.</p>
+          <p className="hint">API keys live in <code>.env/.env.local</code>. Test connectivity below.</p>
           <button
             type="button"
             className="toolbar-btn"
