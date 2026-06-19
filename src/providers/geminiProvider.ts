@@ -1,12 +1,32 @@
-import type { ChatMessage, ChatRequest, StreamChunk } from '../types'
+import type { ChatMessage, ChatRequest, StreamChunk, ToolCall } from '../types'
 import { ProviderError } from '../types'
 import { readSSEStream } from '../features/streaming'
+import { toolsToGemini, extractGeminiToolCalls } from '../features/agentTools'
 
-type GeminiPart = { text: string }
+export type GeminiCompletionResult = {
+  content: string
+  reasoning?: string
+  toolCalls?: ToolCall[]
+}
+
+type GeminiPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } }
+
 type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] }
 
 function toGeminiRole(role: ChatMessage['role']): 'user' | 'model' {
   return role === 'assistant' ? 'model' : 'user'
+}
+
+function messageToParts(msg: ChatMessage): GeminiPart[] {
+  const parts: GeminiPart[] = []
+  if (msg.content) parts.push({ text: msg.content })
+  for (const img of msg.images ?? []) {
+    parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
+  }
+  if (parts.length === 0) parts.push({ text: '' })
+  return parts
 }
 
 function buildGeminiBody(request: ChatRequest) {
@@ -15,19 +35,29 @@ function buildGeminiBody(request: ChatRequest) {
 
   const contents: GeminiContent[] = conversation.map((msg) => ({
     role: toGeminiRole(msg.role),
-    parts: [{ text: msg.content }],
+    parts: messageToParts(msg),
   }))
+
+  const generationConfig: Record<string, unknown> = {
+    temperature: request.temperature ?? 0.7,
+    maxOutputTokens: request.maxTokens ?? 4096,
+  }
+
+  if (request.jsonMode) {
+    generationConfig.responseMimeType = 'application/json'
+  }
 
   const body: Record<string, unknown> = {
     contents,
-    generationConfig: {
-      temperature: request.temperature ?? 0.7,
-      maxOutputTokens: request.maxTokens ?? 4096,
-    },
+    generationConfig,
   }
 
   if (systemMessage) {
     body.systemInstruction = { parts: [{ text: systemMessage.content }] }
+  }
+
+  if (request.tools?.length) {
+    body.tools = [{ functionDeclarations: toolsToGemini(request.tools) }]
   }
 
   return body
@@ -46,19 +76,29 @@ function classifyGeminiError(status: number, body: string): ProviderError {
   return new ProviderError(body || `Gemini request failed (${status})`, 'unknown', status)
 }
 
-function extractGeminiText(data: unknown): string | null {
+function extractGeminiChunk(data: unknown): { content?: string; reasoning?: string } | null {
   const response = data as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[]
+    candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]
   }
   const parts = response.candidates?.[0]?.content?.parts
-  if (!parts) return null
-  return parts.map((p) => p.text ?? '').join('')
+  if (!parts?.length) return null
+
+  let content = ''
+  let reasoning = ''
+  for (const part of parts) {
+    const text = part.text ?? ''
+    if (part.thought) reasoning += text
+    else content += text
+  }
+
+  if (!content && !reasoning) return null
+  return { content: content || undefined, reasoning: reasoning || undefined }
 }
 
-export async function chatGemini(
+export async function completeGemini(
   apiKey: string,
   request: ChatRequest,
-): Promise<string> {
+): Promise<GeminiCompletionResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${request.model}:generateContent?key=${encodeURIComponent(apiKey)}`
 
   let response: Response
@@ -78,9 +118,22 @@ export async function chatGemini(
   }
 
   const data = await response.json()
-  const text = extractGeminiText(data)
-  if (!text) throw new ProviderError('Empty response from Gemini', 'unknown')
-  return text
+  const chunk = extractGeminiChunk(data)
+  const text = chunk?.content ?? ''
+  const reasoning = chunk?.reasoning
+  const toolCalls = extractGeminiToolCalls(data)
+  if (!text && !toolCalls.length && !reasoning) {
+    throw new ProviderError('Empty response from Gemini', 'unknown')
+  }
+  return { content: text, reasoning, toolCalls: toolCalls.length ? toolCalls : undefined }
+}
+
+export async function chatGemini(
+  apiKey: string,
+  request: ChatRequest,
+): Promise<string> {
+  const result = await completeGemini(apiKey, request)
+  return result.content
 }
 
 export async function* streamGemini(
@@ -105,19 +158,30 @@ export async function* streamGemini(
     throw classifyGeminiError(response.status, text)
   }
 
-  let previous = ''
-  for await (const chunk of readSSEStream(response, extractGeminiText)) {
+  let previousContent = ''
+  let previousReasoning = ''
+  for await (const chunk of readSSEStream(response, extractGeminiChunk)) {
     if (chunk.done) {
       yield chunk
       continue
     }
 
-    const delta = chunk.content.startsWith(previous)
-      ? chunk.content.slice(previous.length)
-      : chunk.content
-    previous = chunk.content
+    const content = chunk.content ?? ''
+    const reasoning = chunk.reasoning ?? ''
 
-    if (delta) yield { content: delta }
+    const contentDelta = content.startsWith(previousContent)
+      ? content.slice(previousContent.length)
+      : content
+    const reasoningDelta = reasoning.startsWith(previousReasoning)
+      ? reasoning.slice(previousReasoning.length)
+      : reasoning
+
+    previousContent = content
+    previousReasoning = reasoning
+
+    if (contentDelta || reasoningDelta) {
+      yield { content: contentDelta, reasoning: reasoningDelta || undefined }
+    }
   }
 }
 

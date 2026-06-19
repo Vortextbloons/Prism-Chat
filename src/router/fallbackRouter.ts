@@ -2,7 +2,8 @@ import type { ChatRequest, RouteMode } from '../types'
 import { ProviderError } from '../types'
 import { getApiKey, getProviderOrder } from '../config/loadProviders'
 import { collectStream } from '../features/streaming'
-import { sendChat, streamChat } from '../providers'
+import type { StreamChunk } from '../types'
+import { completeChat, streamChat } from '../providers'
 import { getProvider } from '../providers/registry'
 
 export type FallbackAttempt = {
@@ -13,6 +14,7 @@ export type FallbackAttempt = {
 
 export type FallbackResult = {
   content: string
+  reasoning?: string
   provider: string
   model: string
   attempts: FallbackAttempt[]
@@ -20,7 +22,9 @@ export type FallbackResult = {
 
 function resolveModel(providerId: string, preferredModel?: string): string {
   const config = getProvider(providerId)
-  if (!config) return preferredModel ?? ''
+  if (!config) {
+    throw new ProviderError(`Unknown provider: ${providerId}`, 'unknown')
+  }
   if (preferredModel && config.models.some((m) => m.id === preferredModel)) {
     return preferredModel
   }
@@ -57,13 +61,13 @@ export async function sendWithFallback(
     const model = resolveModel(providerId, request.model)
 
     try {
-      const content = await sendChat(apiKey, {
+      const result = await completeChat(apiKey, {
         ...request,
         provider: providerId,
         model,
         stream: false,
       })
-      return { content, provider: providerId, model, attempts }
+      return { content: result.content, reasoning: result.reasoning, provider: providerId, model, attempts }
     } catch (err) {
       if (err instanceof ProviderError) {
         attempts.push({ provider: providerId, error: err.message, kind: err.kind })
@@ -85,7 +89,7 @@ export async function streamWithFallback(
   request: ChatRequest,
   routeMode: RouteMode,
   preferredProvider?: string,
-  onChunk?: (content: string) => void,
+  onChunk?: (chunk: StreamChunk) => void,
 ): Promise<FallbackResult> {
   const attempts: FallbackAttempt[] = []
 
@@ -100,8 +104,14 @@ export async function streamWithFallback(
 
     try {
       const stream = streamChat(apiKey, { ...request, provider: providerId, model, stream: true })
-      const content = await collectStream(stream, onChunk)
-      return { content, provider: providerId, model, attempts }
+      const collected = await collectStream(stream, onChunk)
+      return {
+        content: collected.content,
+        reasoning: collected.reasoning,
+        provider: providerId,
+        model,
+        attempts,
+      }
     } catch (err) {
       if (err instanceof ProviderError) {
         attempts.push({ provider: providerId, error: err.message, kind: err.kind })
@@ -118,28 +128,41 @@ export async function tryStreamThenFallback(
   request: ChatRequest,
   routeMode: RouteMode,
   preferredProvider: string,
-  onChunk?: (content: string) => void,
+  onChunk?: (chunk: StreamChunk) => void,
 ): Promise<FallbackResult> {
   const apiKey = getApiKey(preferredProvider)
-  const model = resolveModel(preferredProvider, request.model)
+  const config = getProvider(preferredProvider)
 
-  if (apiKey) {
+  if (apiKey && config) {
+    const model = resolveModel(preferredProvider, request.model)
     try {
       const stream = streamChat(apiKey, { ...request, provider: preferredProvider, model, stream: true })
-      const content = await collectStream(stream, onChunk)
-      return { content, provider: preferredProvider, model, attempts: [] }
+      const collected = await collectStream(stream, onChunk)
+      return {
+        content: collected.content,
+        reasoning: collected.reasoning,
+        provider: preferredProvider,
+        model,
+        attempts: [],
+      }
     } catch (err) {
       if (err instanceof ProviderError && err.kind !== 'rate_limit' && err.kind !== 'invalid_key') {
         throw err
       }
       try {
-        const content = await sendChat(apiKey, {
+        const result = await completeChat(apiKey, {
           ...request,
           provider: preferredProvider,
           model,
           stream: false,
         })
-        return { content, provider: preferredProvider, model, attempts: [] }
+        return {
+          content: result.content,
+          reasoning: result.reasoning,
+          provider: preferredProvider,
+          model,
+          attempts: [],
+        }
       } catch {
         // fall through
       }

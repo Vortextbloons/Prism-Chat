@@ -1,11 +1,13 @@
 const CACHE = 'prism-shell-v1'
 
+function assetUrl(path) {
+  return new URL(path, self.location.href).href
+}
+
+const SHELL_ASSETS = ['./', 'index.html', 'manifest.json', 'favicon.svg'].map(assetUrl)
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      cache.addAll(['./', './index.html', './manifest.json', './favicon.svg']),
-    ),
-  )
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL_ASSETS)))
   self.skipWaiting()
 })
 

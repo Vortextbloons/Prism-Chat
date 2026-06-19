@@ -1,0 +1,178 @@
+{
+  "routes": {
+    "default": ["gemini", "openrouter", "groq", "cerebras", "mistral", "huggingface"],
+    "fast": ["groq", "cerebras", "openrouter", "gemini"],
+    "long-context": ["gemini", "openrouter", "mistral"],
+    "open-source": ["openrouter", "huggingface", "groq", "cerebras"],
+    "coding": ["groq", "cerebras", "openrouter", "gemini", "mistral"],
+    "best-free": ["openrouter", "groq", "cerebras", "huggingface", "gemini"]
+  },
+  "providers": [
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "enabled": true,
+      "apiKey": "",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "authHeader": "query",
+      "type": "gemini",
+      "defaultModel": "gemini-2.0-flash",
+      "embeddingModel": "text-embedding-004",
+      "models": [
+        { "id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "capabilities": ["text", "streaming", "long-context", "image", "json"] },
+        { "id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite", "capabilities": ["text", "streaming", "image"] },
+        { "id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "capabilities": ["text", "streaming", "long-context", "image"] },
+        { "id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "capabilities": ["text", "streaming", "long-context", "image", "json"] }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "enabled": true,
+      "apiKey": "",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "openrouter/free",
+      "models": [
+        { "id": "openrouter/free", "name": "OpenRouter Free Router", "capabilities": ["text", "streaming"] },
+        { "id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "enabled": true,
+      "apiKey": "",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "llama-3.3-70b-versatile",
+      "models": [
+        { "id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "capabilities": ["text", "streaming"] },
+        { "id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "capabilities": ["text", "streaming"] },
+        { "id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "capabilities": ["text", "streaming", "long-context"] }
+      ]
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral",
+      "enabled": true,
+      "apiKey": "",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "mistral-small-latest",
+      "models": [
+        { "id": "mistral-small-latest", "name": "Mistral Small", "capabilities": ["text", "streaming", "json"] },
+        { "id": "open-mistral-nemo", "name": "Mistral Nemo", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "enabled": true,
+      "apiKey": "",
+      "baseUrl": "https://api.cerebras.ai/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "llama3.1-8b",
+      "models": [
+        { "id": "llama3.1-8b", "name": "Llama 3.1 8B", "capabilities": ["text", "streaming"] },
+        { "id": "llama-3.3-70b", "name": "Llama 3.3 70B", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face",
+      "enabled": true,
+      "apiKey": "",
+      "baseUrl": "https://router.huggingface.co/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "meta-llama/Meta-Llama-3-8B-Instruct",
+      "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
+      "models": [
+        { "id": "meta-llama/Meta-Llama-3-8B-Instruct", "name": "Llama 3 8B Instruct", "capabilities": ["text", "streaming", "embeddings"] },
+        { "id": "Qwen/Qwen2.5-7B-Instruct", "name": "Qwen 2.5 7B Instruct", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare Workers AI",
+      "enabled": false,
+      "apiKey": "",
+      "accountId": "",
+      "baseUrl": "https://api.cloudflare.com/client/v4",
+      "authHeader": "Bearer",
+      "type": "cloudflare",
+      "defaultModel": "@cf/meta/llama-3-8b-instruct",
+      "models": [
+        { "id": "@cf/meta/llama-3-8b-instruct", "name": "Llama 3 8B", "capabilities": ["text"] },
+        { "id": "@cf/mistral/mistral-7b-instruct-v0.1", "name": "Mistral 7B", "capabilities": ["text"] }
+      ]
+    },
+    {
+      "id": "github-models",
+      "name": "GitHub Models",
+      "enabled": false,
+      "apiKey": "",
+      "baseUrl": "https://models.inference.ai.azure.com",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "gpt-4o-mini",
+      "models": [
+        { "id": "gpt-4o-mini", "name": "GPT-4o Mini", "capabilities": ["text", "streaming"] },
+        { "id": "Llama-3.3-70B-Instruct", "name": "Llama 3.3 70B", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "nvidia-nim",
+      "name": "NVIDIA NIM",
+      "enabled": false,
+      "apiKey": "",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "meta/llama-3.1-8b-instruct",
+      "models": [
+        { "id": "meta/llama-3.1-8b-instruct", "name": "Llama 3.1 8B", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "deepinfra",
+      "name": "DeepInfra",
+      "enabled": false,
+      "apiKey": "",
+      "baseUrl": "https://api.deepinfra.com/v1/openai",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+      "models": [
+        { "id": "meta-llama/Meta-Llama-3.1-8B-Instruct", "name": "Llama 3.1 8B", "capabilities": ["text", "streaming"] }
+      ]
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "enabled": false,
+      "apiKey": "",
+      "baseUrl": "https://api.together.xyz/v1",
+      "chatPath": "/chat/completions",
+      "authHeader": "Bearer",
+      "type": "openai-compatible",
+      "defaultModel": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      "models": [
+        { "id": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", "name": "Llama 3.1 8B Turbo", "capabilities": ["text", "streaming"] }
+      ]
+    }
+  ]
+}

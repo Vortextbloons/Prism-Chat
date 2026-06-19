@@ -120,6 +120,7 @@ export function App() {
           onChatUpdated={(updated) => {
             setChats((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
           }}
+          onSettingsChange={setSettings}
         />
       ) : (
         <div className="empty-state">Select or create a chat</div>

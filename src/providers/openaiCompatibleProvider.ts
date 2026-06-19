@@ -1,23 +1,57 @@
-import type { ChatRequest, StreamChunk } from '../types'
+import type { ChatRequest, StreamChunk, ToolCall } from '../types'
 import { ProviderError } from '../types'
 import { readSSEStream } from '../features/streaming'
+import { coerceMessageText, coerceReasoningText } from '../features/messageText'
 import { getProvider } from './registry'
+import { toolsToOpenAI, extractToolCallsFromResponse } from '../features/agentTools'
 
-type OpenAIMessage = { role: string; content: string }
+type OpenAIMessage =
+  | { role: string; content: string }
+  | { role: 'assistant'; content: string | null; tool_calls?: unknown[] }
+  | { role: 'tool'; tool_call_id: string; content: string }
 
-function buildOpenAIBody(request: ChatRequest) {
+function buildOpenAIMessages(request: ChatRequest): OpenAIMessage[] {
   const messages: OpenAIMessage[] = request.messages.map((m) => ({
     role: m.role,
     content: m.content,
   }))
 
-  return {
+  for (const tr of request.toolResults ?? []) {
+    messages.push({
+      role: 'tool',
+      tool_call_id: tr.toolCallId,
+      content: tr.content,
+    })
+  }
+
+  return messages
+}
+
+function buildOpenAIBody(request: ChatRequest) {
+  const body: Record<string, unknown> = {
     model: request.model,
-    messages,
+    messages: buildOpenAIMessages(request),
     temperature: request.temperature ?? 0.7,
     max_tokens: request.maxTokens ?? 4096,
     stream: request.stream ?? false,
   }
+
+  if (request.jsonMode) {
+    body.response_format = { type: 'json_object' }
+  }
+
+  if (request.tools?.length) {
+    body.tools = toolsToOpenAI(request.tools)
+    body.tool_choice = 'auto'
+  }
+
+  return body
+}
+
+export type CompletionResult = {
+  content: string
+  reasoning?: string
+  toolCalls?: ToolCall[]
 }
 
 function classifyOpenAIError(status: number, body: string): ProviderError {
@@ -33,19 +67,53 @@ function classifyOpenAIError(status: number, body: string): ProviderError {
   return new ProviderError(body || `Request failed (${status})`, 'unknown', status)
 }
 
-function extractOpenAIText(data: unknown): string | null {
-  const response = data as {
-    choices?: { delta?: { content?: string }; message?: { content?: string } }[]
-  }
-  const choice = response.choices?.[0]
-  return choice?.delta?.content ?? choice?.message?.content ?? null
+type OpenAIChoicePart = {
+  content?: string | null
+  reasoning?: string | null
+  reasoning_content?: string | null
+  reasoning_details?: { type?: string; text?: string; content?: string }[]
 }
 
-export async function chatOpenAICompatible(
+export function extractOpenAIChunk(data: unknown): { content?: string; reasoning?: string } | null {
+  const response = data as {
+    choices?: { delta?: OpenAIChoicePart; message?: OpenAIChoicePart }[]
+  }
+  const choice = response.choices?.[0]
+  const part = choice?.delta ?? choice?.message
+  if (!part) return null
+
+  let reasoningText =
+    part.reasoning ??
+    part.reasoning_content ??
+    undefined
+
+  if (!reasoningText && Array.isArray(part.reasoning_details)) {
+    reasoningText = part.reasoning_details
+      .map((d) => d.text ?? d.content ?? '')
+      .join('')
+      || undefined
+  }
+
+  const content = coerceMessageText(part.content)
+  const reasoning = coerceReasoningText(reasoningText)
+
+  if (!content && !reasoning) return null
+  return { content: content || undefined, reasoning }
+}
+
+export function extractOpenAIText(data: unknown): string | null {
+  return extractOpenAIChunk(data)?.content ?? null
+}
+
+export function extractOpenAIReasoning(data: unknown): string | undefined {
+  return extractOpenAIChunk(data)?.reasoning
+}
+
+export async function completeOpenAICompatible(
   providerId: string,
   apiKey: string,
   request: ChatRequest,
-): Promise<string> {
+): Promise<CompletionResult> {
   const config = getProvider(providerId)
   if (!config || config.type !== 'openai-compatible') {
     throw new ProviderError(`Unknown OpenAI-compatible provider: ${providerId}`, 'unknown')
@@ -79,9 +147,23 @@ export async function chatOpenAICompatible(
   }
 
   const data = await response.json()
-  const text = extractOpenAIText(data)
-  if (!text) throw new ProviderError('Empty response from provider', 'unknown')
-  return text
+  const chunk = extractOpenAIChunk(data)
+  const content = chunk?.content ?? ''
+  const reasoning = chunk?.reasoning
+  const toolCalls = extractToolCallsFromResponse(data)
+  if (!content && !toolCalls.length && !reasoning) {
+    throw new ProviderError('Empty response from provider', 'unknown')
+  }
+  return { content, reasoning, toolCalls: toolCalls.length ? toolCalls : undefined }
+}
+
+export async function chatOpenAICompatible(
+  providerId: string,
+  apiKey: string,
+  request: ChatRequest,
+): Promise<string> {
+  const result = await completeOpenAICompatible(providerId, apiKey, request)
+  return result.content
 }
 
 export async function* streamOpenAICompatible(
@@ -121,7 +203,7 @@ export async function* streamOpenAICompatible(
     throw classifyOpenAIError(response.status, text)
   }
 
-  yield* readSSEStream(response, extractOpenAIText)
+  yield* readSSEStream(response, extractOpenAIChunk)
 }
 
 export async function testOpenAICompatibleKey(

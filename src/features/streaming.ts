@@ -1,8 +1,19 @@
 import type { StreamChunk } from '../types'
+import { coerceMessageText, coerceReasoningText } from './messageText'
+
+export type StreamExtract = {
+  content?: string
+  reasoning?: string
+}
+
+export type CollectedStream = {
+  content: string
+  reasoning?: string
+}
 
 export async function* readSSEStream(
   response: Response,
-  extractText: (data: unknown) => string | null,
+  extract: (data: unknown) => StreamExtract | null,
 ): AsyncGenerator<StreamChunk> {
   const reader = response.body?.getReader()
   if (!reader) throw new Error('Response body is not readable')
@@ -31,8 +42,13 @@ export async function* readSSEStream(
 
         try {
           const parsed = JSON.parse(payload)
-          const text = extractText(parsed)
-          if (text) yield { content: text }
+          const part = extract(parsed)
+          if (part?.content || part?.reasoning) {
+            yield {
+              content: coerceMessageText(part.content),
+              reasoning: coerceReasoningText(part.reasoning),
+            }
+          }
         } catch {
           // skip malformed chunks
         }
@@ -45,14 +61,15 @@ export async function* readSSEStream(
 
 export async function collectStream(
   stream: AsyncGenerator<StreamChunk>,
-  onChunk?: (content: string) => void,
-): Promise<string> {
-  let full = ''
+  onChunk?: (chunk: StreamChunk) => void,
+): Promise<CollectedStream> {
+  let content = ''
+  let reasoning = ''
   for await (const chunk of stream) {
-    if (chunk.content) {
-      full += chunk.content
-      onChunk?.(chunk.content)
-    }
+    if (chunk.done) continue
+    if (chunk.content) content += chunk.content
+    if (chunk.reasoning) reasoning += chunk.reasoning
+    if (chunk.content || chunk.reasoning) onChunk?.(chunk)
   }
-  return full
+  return { content, reasoning: reasoning || undefined }
 }

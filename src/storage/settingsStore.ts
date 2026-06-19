@@ -14,6 +14,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   routeMode: 'default',
   autoFallback: true,
   maxContextTokens: 12000,
+  summarizeContext: true,
+  jsonMode: false,
+  enableTools: false,
+  useLocalEmbeddings: false,
+  proxyBaseUrl: '',
+  showReasoning: true,
 }
 
 export const DEFAULT_USAGE: UsageStats = {

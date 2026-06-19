@@ -1,9 +1,13 @@
 import type { StoredMessage } from '../types'
+import { coerceMessageText, coerceReasoningText } from '../features/messageText'
+import { MessageMarkdown } from './MessageMarkdown'
 
 type MessageListProps = {
   messages: StoredMessage[]
   sending: boolean
-  streamPreview?: { id: string; content: string } | null
+  showReasoning?: boolean
+  streamPreview?: { id: string; content: string; reasoning?: string } | null
+  onRewrite?: (messageId: string, content: string) => void
 }
 
 function PrismIcon({ size = 36 }: { size?: number }) {
@@ -15,7 +19,7 @@ function PrismIcon({ size = 36 }: { size?: number }) {
   )
 }
 
-export function MessageList({ messages, sending, streamPreview }: MessageListProps) {
+export function MessageList({ messages, sending, showReasoning, streamPreview, onRewrite }: MessageListProps) {
   if (messages.length === 0) {
     return (
       <div className="message-list empty">
@@ -27,11 +31,11 @@ export function MessageList({ messages, sending, streamPreview }: MessageListPro
         <div className="feature-cards">
           <div className="feature-card">
             <strong>Multi-provider</strong>
-            <span>Switch between 6 AI backends instantly</span>
+            <span>Switch between AI backends instantly</span>
           </div>
           <div className="feature-card">
-            <strong>Auto-fallback</strong>
-            <span>Routes to the next provider on rate limits</span>
+            <strong>Tools & RAG</strong>
+            <span>Agent tools, documents, voice, and image gen</span>
           </div>
           <div className="feature-card">
             <strong>Private</strong>
@@ -45,9 +49,14 @@ export function MessageList({ messages, sending, streamPreview }: MessageListPro
   return (
     <div className="message-list has-messages">
       {messages.map((msg) => {
-        const displayContent =
-          streamPreview?.id === msg.id ? streamPreview.content : msg.content
         const isStreaming = streamPreview?.id === msg.id && sending
+        const displayContent = coerceMessageText(
+          streamPreview?.id === msg.id ? streamPreview.content : msg.content,
+        )
+        const displayReasoning = coerceReasoningText(
+          streamPreview?.id === msg.id ? streamPreview.reasoning : msg.reasoning,
+        )
+        const reasoningText = displayReasoning
 
         return (
         <article key={msg.id} className={`message message-${msg.role}`}>
@@ -60,9 +69,59 @@ export function MessageList({ messages, sending, streamPreview }: MessageListPro
             {msg.role === 'system' && (
               <div className="message-role">System</div>
             )}
+            {msg.toolCalls && msg.toolCalls.length > 0 && (
+              <div className="tool-calls-badge">
+                Used tools: {msg.toolCalls.map((t) => t.name).join(', ')}
+              </div>
+            )}
+            {showReasoning && msg.role === 'assistant' && reasoningText && (
+              <details className="message-reasoning" open={isStreaming}>
+                <summary>Reasoning</summary>
+                <div className="message-reasoning-body">{reasoningText}</div>
+              </details>
+            )}
             <div className="message-content">
-              {displayContent || (isStreaming ? '…' : '')}
+              {displayContent ? (
+                msg.role === 'assistant' ? (
+                  <MessageMarkdown content={displayContent} />
+                ) : (
+                  displayContent
+                )
+              ) : (
+                isStreaming && !reasoningText ? '…' : null
+              )}
             </div>
+            {msg.images && msg.images.length > 0 && (
+              <div className="message-images">
+                {msg.images.map((img, i) => (
+                  <img
+                    key={i}
+                    src={`data:${img.mimeType};base64,${img.data}`}
+                    alt="Attached"
+                    className="message-image"
+                  />
+                ))}
+              </div>
+            )}
+            {msg.generatedImage && (
+              <div className="message-images">
+                <img
+                  src={`data:${msg.generatedImage.mimeType};base64,${msg.generatedImage.data}`}
+                  alt="Generated"
+                  className="message-image generated"
+                />
+              </div>
+            )}
+            {msg.role === 'assistant' && displayContent && onRewrite && !isStreaming && (
+              <button
+                type="button"
+                className="message-action"
+                onClick={() => onRewrite(msg.id, displayContent)}
+                disabled={sending}
+              >
+                Rewrite
+              </button>
+            )}
           </div>
         </article>
         )

@@ -28,6 +28,8 @@ const ROUTE_LABELS: Record<string, string> = {
   fast: 'Fast (Groq / Cerebras)',
   'long-context': 'Long context',
   'open-source': 'Open source',
+  coding: 'Coding (Groq / Cerebras)',
+  'best-free': 'Best free tier',
 }
 
 function healthLabel(health?: ProviderHealth): string {
@@ -160,6 +162,57 @@ export function SettingsPanel({ settings, onClose, onSettingsChange }: SettingsP
               onChange={(e) => setLocal({ ...local, maxContextTokens: Number(e.target.value) })}
             />
           </div>
+          <div className="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={local.summarizeContext}
+                onChange={(e) => setLocal({ ...local, summarizeContext: e.target.checked })}
+              />
+              Summarize dropped messages with AI (long-context)
+            </label>
+          </div>
+          <div className="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={local.jsonMode}
+                onChange={(e) => setLocal({ ...local, jsonMode: e.target.checked })}
+              />
+              JSON response mode (when supported)
+            </label>
+          </div>
+          <div className="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={local.enableTools}
+                onChange={(e) => setLocal({ ...local, enableTools: e.target.checked })}
+              />
+              Enable agent tools (time, calculate, word count)
+            </label>
+          </div>
+          <div className="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={local.useLocalEmbeddings}
+                onChange={(e) => setLocal({ ...local, useLocalEmbeddings: e.target.checked })}
+              />
+              Use Transformers.js local embeddings for RAG
+            </label>
+          </div>
+          <div className="field">
+            <label htmlFor="proxyUrl">Proxy base URL (optional)</label>
+            <input
+              id="proxyUrl"
+              type="url"
+              placeholder="https://your-worker.workers.dev"
+              value={local.proxyBaseUrl}
+              onChange={(e) => setLocal({ ...local, proxyBaseUrl: e.target.value })}
+            />
+            <p className="hint">Route API calls through a Cloudflare Worker to hide keys.</p>
+          </div>
         </section>
 
         <section>
@@ -210,6 +263,16 @@ export function SettingsPanel({ settings, onClose, onSettingsChange }: SettingsP
                 onChange={(e) => setLocal({ ...local, streamResponses: e.target.checked })}
               />
               Stream responses
+            </label>
+          </div>
+          <div className="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={local.showReasoning}
+                onChange={(e) => setLocal({ ...local, showReasoning: e.target.checked })}
+              />
+              Show model reasoning (thinking models)
             </label>
           </div>
           <div className="field">

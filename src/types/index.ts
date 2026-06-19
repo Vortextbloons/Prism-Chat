@@ -1,8 +1,14 @@
 export type MessageRole = 'system' | 'user' | 'assistant'
 
+export type ImageAttachment = {
+  mimeType: string
+  data: string
+}
+
 export type ChatMessage = {
   role: MessageRole
   content: string
+  images?: ImageAttachment[]
 }
 
 export type ChatRequest = {
@@ -12,6 +18,41 @@ export type ChatRequest = {
   temperature?: number
   maxTokens?: number
   stream?: boolean
+  jsonMode?: boolean
+  tools?: ToolDefinition[]
+  toolResults?: ToolResultMessage[]
+}
+
+export type ToolDefinition = {
+  name: string
+  description: string
+  parameters: {
+    type: 'object'
+    properties: Record<string, { type: string; description?: string }>
+    required?: string[]
+  }
+}
+
+export type ToolCall = {
+  id: string
+  name: string
+  arguments: Record<string, unknown>
+}
+
+export type ToolResultMessage = {
+  role: 'tool'
+  toolCallId: string
+  name: string
+  content: string
+}
+
+export type StoredMessage = ChatMessage & {
+  id: string
+  createdAt: number
+  images?: ImageAttachment[]
+  toolCalls?: ToolCall[]
+  generatedImage?: ImageAttachment
+  reasoning?: string
 }
 
 export type ProviderErrorKind =
@@ -35,6 +76,7 @@ export class ProviderError extends Error {
 
 export type StreamChunk = {
   content: string
+  reasoning?: string
   done?: boolean
 }
 
@@ -62,13 +104,21 @@ export type ProviderConfig = {
   apiKey: string
   baseUrl: string
   chatPath?: string
+  accountId?: string
   authHeader: 'Bearer' | 'x-api-key' | 'query'
   type: 'openai-compatible' | 'gemini' | 'huggingface' | 'cloudflare'
   defaultModel: string
   models: ModelConfig[]
+  embeddingModel?: string
 }
 
-export type RouteMode = 'default' | 'fast' | 'long-context' | 'open-source'
+export type RouteMode =
+  | 'default'
+  | 'fast'
+  | 'long-context'
+  | 'open-source'
+  | 'coding'
+  | 'best-free'
 
 export type ProvidersFile = {
   routes: Record<RouteMode, string[]>
@@ -82,13 +132,29 @@ export type ChatSession = {
   systemPrompt: string
   provider: string
   model: string
+  routeModeOverride?: RouteMode
+  documentIds?: string[]
   createdAt: number
   updatedAt: number
 }
 
-export type StoredMessage = ChatMessage & {
+export type StoredDocument = {
   id: string
+  chatId: string
+  name: string
+  mimeType: string
+  size: number
+  text: string
   createdAt: number
+}
+
+export type DocumentChunk = {
+  id: string
+  documentId: string
+  chatId: string
+  index: number
+  text: string
+  embedding?: number[]
 }
 
 export type AppSettings = {
@@ -101,6 +167,12 @@ export type AppSettings = {
   routeMode: RouteMode
   autoFallback: boolean
   maxContextTokens: number
+  summarizeContext: boolean
+  jsonMode: boolean
+  enableTools: boolean
+  useLocalEmbeddings: boolean
+  proxyBaseUrl: string
+  showReasoning: boolean
 }
 
 export type ProviderHealthStatus =

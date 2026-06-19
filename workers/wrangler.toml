@@ -1,0 +1,9 @@
+name = "prism-chat-proxy"
+main = "proxy.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGINS = "http://localhost:5173,https://YOUR_USERNAME.github.io"
+
+# Set secrets via: wrangler secret put GEMINI_API_KEY
+# GEMINI_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, CEREBRAS_API_KEY, HUGGINGFACE_API_KEY

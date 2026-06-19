@@ -3,6 +3,7 @@ import { estimateTokens } from './tokenCounter'
 
 export type ContextTrimResult = {
   messages: ChatMessage[]
+  droppedMessages: ChatMessage[]
   droppedCount: number
   estimatedTokens: number
 }
@@ -17,34 +18,37 @@ export function trimToContextLimit(
   const budget = maxTokens - systemTokens
 
   if (budget <= 0 || nonSystem.length === 0) {
-    return { messages: nonSystem.slice(-2), droppedCount: Math.max(0, nonSystem.length - 2), estimatedTokens: systemTokens }
+    const kept = nonSystem.slice(-2)
+    const dropped = nonSystem.slice(0, Math.max(0, nonSystem.length - 2))
+    return {
+      messages: kept,
+      droppedMessages: dropped,
+      droppedCount: dropped.length,
+      estimatedTokens: systemTokens,
+    }
   }
 
   const kept: ChatMessage[] = []
   let used = 0
-  let droppedCount = 0
+  let dropIndex = nonSystem.length
 
   for (let i = nonSystem.length - 1; i >= 0; i--) {
     const msg = nonSystem[i]
     const cost = estimateTokens(msg.content) + 4
     if (used + cost > budget && kept.length >= 2) {
-      droppedCount = i + 1
+      dropIndex = i + 1
       break
     }
     kept.unshift(msg)
     used += cost
   }
 
-  if (droppedCount > 0) {
-    kept.unshift({
-      role: 'system',
-      content: `[${droppedCount} earlier message(s) omitted to stay within context limit]`,
-    })
-  }
+  const droppedMessages = dropIndex > 0 ? nonSystem.slice(0, dropIndex) : []
 
   return {
     messages: kept,
-    droppedCount,
+    droppedMessages,
+    droppedCount: droppedMessages.length,
     estimatedTokens: systemTokens + used,
   }
 }
@@ -53,6 +57,7 @@ export function buildContextMessages(
   systemPrompt: string,
   history: ChatMessage[],
   maxContextTokens: number,
+  summary?: string | null,
 ): ChatMessage[] {
   const trimmed = trimToContextLimit(systemPrompt, history, maxContextTokens)
   const result: ChatMessage[] = []
@@ -61,6 +66,44 @@ export function buildContextMessages(
     result.push({ role: 'system', content: systemPrompt.trim() })
   }
 
-  result.push(...trimmed.messages.filter((m) => m.role !== 'system' || m.content.startsWith('[')))
+  if (summary?.trim()) {
+    result.push({
+      role: 'system',
+      content: `Summary of earlier conversation:\n${summary.trim()}`,
+    })
+  } else if (trimmed.droppedCount > 0) {
+    result.push({
+      role: 'system',
+      content: `[${trimmed.droppedCount} earlier message(s) omitted to stay within context limit]`,
+    })
+  }
+
+  result.push(...trimmed.messages.filter((m) => m.role !== 'system'))
   return result
+}
+
+export async function buildContextMessagesAsync(
+  systemPrompt: string,
+  history: ChatMessage[],
+  maxContextTokens: number,
+  summarize?: (dropped: ChatMessage[]) => Promise<string | null>,
+): Promise<ChatMessage[]> {
+  const trimmed = trimToContextLimit(systemPrompt, history, maxContextTokens)
+  let summary: string | null = null
+
+  if (trimmed.droppedCount > 0 && summarize) {
+    try {
+      summary = await summarize(trimmed.droppedMessages)
+    } catch {
+      summary = null
+    }
+  }
+
+  return buildContextMessages(systemPrompt, history, maxContextTokens, summary)
+}
+
+export function formatMessagesForSummary(messages: ChatMessage[]): string {
+  return messages
+    .map((m) => `${m.role === 'assistant' ? 'Assistant' : m.role === 'user' ? 'User' : 'System'}: ${m.content}`)
+    .join('\n\n')
 }
