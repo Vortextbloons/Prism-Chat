@@ -1,4 +1,4 @@
-const CACHE = 'prism-shell-v2'
+const CACHE = 'prism-shell-v3'
 
 function assetUrl(path) {
   return new URL(path, self.location.href).href
@@ -25,6 +25,21 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url)
   if (url.origin !== self.location.origin) return
+
+  const isNavigation = event.request.mode === 'navigate' || url.pathname.endsWith('.html')
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone()
+          caches.open(CACHE).then((cache) => cache.put(event.request, clone))
+          return response
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match(assetUrl('./')))),
+    )
+    return
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
