@@ -4,4 +4,3 @@ dist-ssr
 *.local
 .DS_Store
 plan.md
-src/config/providers.json

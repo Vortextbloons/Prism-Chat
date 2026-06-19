@@ -1,6 +1,5 @@
 import { getApiKey, getProvider } from '../config/loadProviders'
 import { ProviderError } from '../types'
-import { embedViaProxy, resolveProxyBaseUrl } from '../providers/proxyClient'
 import { embedTextLocal } from './localEmbeddings'
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -26,15 +25,6 @@ export async function embedText(
       return await embedTextLocal(text)
     } catch {
       return hashEmbed(text)
-    }
-  }
-
-  const proxy = await resolveProxyBaseUrl()
-  if (proxy && providerId === 'gemini') {
-    try {
-      return await embedViaProxy(proxy, providerId, text)
-    } catch {
-      // fall through
     }
   }
 

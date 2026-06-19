@@ -92,9 +92,7 @@ export function SettingsPanel({ settings, onClose, onSettingsChange }: SettingsP
 
         <section>
           <h3>Providers</h3>
-          <p className="hint">
-            Keys are in <code>src/config/providers.json</code>. Test connectivity below.
-          </p>
+          <p className="hint">API keys are configured in the app. Test connectivity below.</p>
           <button
             type="button"
             className="toolbar-btn"
@@ -201,17 +199,6 @@ export function SettingsPanel({ settings, onClose, onSettingsChange }: SettingsP
               />
               Use Transformers.js local embeddings for RAG
             </label>
-          </div>
-          <div className="field">
-            <label htmlFor="proxyUrl">Proxy base URL (optional)</label>
-            <input
-              id="proxyUrl"
-              type="url"
-              placeholder="https://your-worker.workers.dev"
-              value={local.proxyBaseUrl}
-              onChange={(e) => setLocal({ ...local, proxyBaseUrl: e.target.value })}
-            />
-            <p className="hint">Route API calls through a Cloudflare Worker to hide keys.</p>
           </div>
         </section>
 

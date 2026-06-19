@@ -4,11 +4,9 @@ import { completeGemini, streamGemini } from './geminiProvider'
 import {
   completeOpenAICompatible,
   streamOpenAICompatible,
-  extractOpenAIChunk,
 } from './openaiCompatibleProvider'
 import { chatCloudflare } from './cloudflareProvider'
 import { getProvider } from './registry'
-import { chatViaProxy, resolveProxyBaseUrl } from './proxyClient'
 
 export type ChatCompletion = {
   content: string
@@ -34,20 +32,6 @@ async function completeChatDirect(apiKey: string, request: ChatRequest): Promise
 }
 
 export async function completeChat(apiKey: string, request: ChatRequest): Promise<ChatCompletion> {
-  const proxy = await resolveProxyBaseUrl()
-  if (proxy) {
-    const response = await chatViaProxy(proxy, apiKey, request, false)
-    if (!response.ok) {
-      const text = await response.text()
-      throw new ProviderError(text || 'Proxy request failed', 'unknown', response.status)
-    }
-    const data = await response.json()
-    const chunk = extractOpenAIChunk(data)
-    const content = chunk?.content ?? ''
-    if (!content) throw new ProviderError('Empty proxy response', 'unknown')
-    return { content, reasoning: chunk?.reasoning }
-  }
-
   return completeChatDirect(apiKey, request)
 }
 

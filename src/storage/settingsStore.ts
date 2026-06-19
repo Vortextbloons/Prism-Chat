@@ -18,7 +18,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   jsonMode: false,
   enableTools: false,
   useLocalEmbeddings: false,
-  proxyBaseUrl: '',
   showReasoning: true,
 }
 

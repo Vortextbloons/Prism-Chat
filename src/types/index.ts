@@ -171,7 +171,6 @@ export type AppSettings = {
   jsonMode: boolean
   enableTools: boolean
   useLocalEmbeddings: boolean
-  proxyBaseUrl: string
   showReasoning: boolean
 }
 

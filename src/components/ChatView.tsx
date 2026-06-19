@@ -25,8 +25,13 @@ import { estimateMessagesTokens, estimateTokens } from '../features/tokenCounter
 import { collectStream } from '../features/streaming'
 import { coerceMessageText, coerceReasoningText } from '../features/messageText'
 import { completeChat, sendChat, streamChat } from '../providers'
-import { getApiKey } from '../config/loadProviders'
-import { getEnabledProviders, getProvider, getProviderModels } from '../providers/registry'
+import {
+  getEffectiveApiKey,
+  getEnabledProviders,
+  getProvider,
+  getProviderModels,
+  isProviderAvailable,
+} from '../config/loadProviders'
 import { modelSupports } from '../router/capabilityRouter'
 import {
   sendWithFallback,
@@ -234,8 +239,9 @@ export function ChatView({ chat, settings, isMobile, sidebarCollapsed, onToggleS
   }
 
   const summarizeDropped = async (dropped: ChatMessage[]) => {
-    const apiKey = getApiKey(chat.provider)
-    if (!apiKey) return null
+    if (!isProviderAvailable(chat.provider)) return null
+
+    const apiKey = getEffectiveApiKey(chat.provider)
 
     const text = formatMessagesForSummary(dropped)
     const summary = await sendChat(apiKey, {
@@ -254,13 +260,14 @@ export function ChatView({ chat, settings, isMobile, sidebarCollapsed, onToggleS
   }
 
   const runCompletion = async (userText: string, images?: ImageAttachment[]) => {
-    const apiKey = getApiKey(chat.provider)
-    if (!apiKey && !settings.autoFallback) {
+    if (!isProviderAvailable(chat.provider) && !settings.autoFallback) {
       setError(
-        `${getProvider(chat.provider)?.name ?? chat.provider} is not configured. Add its API key in src/config/providers.json`,
+        `${getProvider(chat.provider)?.name ?? chat.provider} is not available. Try another provider or enable auto-fallback.`,
       )
       return
     }
+
+    const apiKey = getEffectiveApiKey(chat.provider)
 
     setError(null)
     setNotice(null)

@@ -11,8 +11,25 @@ export function getProvider(id: string): ProviderConfig | undefined {
   return PROVIDERS.find((p) => p.id === id)
 }
 
+export function getApiKey(providerId: string): string | null {
+  const provider = getProvider(providerId)
+  if (!provider?.enabled) return null
+  const key = provider.apiKey?.trim()
+  return key || null
+}
+
+export function isProviderAvailable(providerId: string): boolean {
+  const provider = getProvider(providerId)
+  if (!provider?.enabled) return false
+  return Boolean(getApiKey(providerId))
+}
+
+export function getEffectiveApiKey(providerId: string): string {
+  return getApiKey(providerId) ?? ''
+}
+
 export function getEnabledProviders(): ProviderConfig[] {
-  return PROVIDERS.filter((p) => p.enabled && isProviderConfigured(p))
+  return PROVIDERS.filter((p) => p.enabled && isProviderAvailable(p.id))
 }
 
 export function getProviderModels(providerId: string): ModelConfig[] {
@@ -24,14 +41,7 @@ export function getModel(providerId: string, modelId: string): ModelConfig | und
 }
 
 export function isProviderConfigured(provider: ProviderConfig): boolean {
-  return Boolean(provider.apiKey?.trim())
-}
-
-export function getApiKey(providerId: string): string | null {
-  const provider = getProvider(providerId)
-  if (!provider?.enabled) return null
-  const key = provider.apiKey?.trim()
-  return key || null
+  return isProviderAvailable(provider.id)
 }
 
 export function getProviderOrder(mode: RouteMode): string[] {

@@ -1,6 +1,6 @@
 import type { ChatRequest, RouteMode } from '../types'
 import { ProviderError } from '../types'
-import { getApiKey, getProviderOrder } from '../config/loadProviders'
+import { getEffectiveApiKey, getProviderOrder, isProviderAvailable } from '../config/loadProviders'
 import { collectStream } from '../features/streaming'
 import type { StreamChunk } from '../types'
 import { completeChat, streamChat } from '../providers'
@@ -52,12 +52,12 @@ export async function sendWithFallback(
   const attempts: FallbackAttempt[] = []
 
   for (const providerId of getProviderOrderList(routeMode, preferredProvider)) {
-    const apiKey = getApiKey(providerId)
-    if (!apiKey) continue
+    if (!isProviderAvailable(providerId)) continue
 
     const config = getProvider(providerId)
     if (!config) continue
 
+    const apiKey = getEffectiveApiKey(providerId)
     const model = resolveModel(providerId, request.model)
 
     try {
@@ -94,12 +94,12 @@ export async function streamWithFallback(
   const attempts: FallbackAttempt[] = []
 
   for (const providerId of getProviderOrderList(routeMode, preferredProvider)) {
-    const apiKey = getApiKey(providerId)
-    if (!apiKey) continue
+    if (!isProviderAvailable(providerId)) continue
 
     const config = getProvider(providerId)
     if (!config) continue
 
+    const apiKey = getEffectiveApiKey(providerId)
     const model = resolveModel(providerId, request.model)
 
     try {
@@ -130,10 +130,10 @@ export async function tryStreamThenFallback(
   preferredProvider: string,
   onChunk?: (chunk: StreamChunk) => void,
 ): Promise<FallbackResult> {
-  const apiKey = getApiKey(preferredProvider)
+  const apiKey = getEffectiveApiKey(preferredProvider)
   const config = getProvider(preferredProvider)
 
-  if (apiKey && config) {
+  if (isProviderAvailable(preferredProvider) && config) {
     const model = resolveModel(preferredProvider, request.model)
     try {
       const stream = streamChat(apiKey, { ...request, provider: preferredProvider, model, stream: true })
