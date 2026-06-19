@@ -1,0 +1,16 @@
+{
+  "name": "Prism — Multi-AI Chat",
+  "short_name": "Prism",
+  "description": "A modern multi-provider AI chat router",
+  "start_url": "/AI-Chat-App/",
+  "display": "standalone",
+  "background_color": "#06060b",
+  "theme_color": "#06060b",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
